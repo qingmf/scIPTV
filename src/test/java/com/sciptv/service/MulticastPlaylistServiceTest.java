@@ -5,6 +5,7 @@ import com.sciptv.config.PlaylistProperties;
 import com.sciptv.model.multicast.ChannelInfo;
 import com.sciptv.model.multicast.ChengduTelecomChannelResponse;
 import com.sciptv.model.multicast.SourceInfo;
+import com.sciptv.model.multicast.VideoInfo;
 import com.sciptv.model.playlist.PlaylistSnapshot;
 import com.sciptv.model.playlist.PlaylistUrlType;
 import org.junit.jupiter.api.Test;
@@ -109,6 +110,18 @@ class MulticastPlaylistServiceTest {
         assertThat(fallback.getMessage()).contains("回退到最近一次成功生成的文件");
     }
 
+    @Test
+    void shouldRemovePictureInPictureAndPrefer4kForDuplicateChannels() {
+        PlaylistProperties properties = new PlaylistProperties();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), duplicateResponse());
+
+        String m3u = service.buildM3uContent(PlaylistUrlType.HTTP);
+
+        assertThat(m3u).doesNotContain("画中画");
+        assertThat(m3u).doesNotContain("四川卫视高清");
+        assertThat(m3u).contains("四川卫视4K");
+    }
+
     private ChengduTelecomChannelResponse mockResponse() {
         SourceInfo sourceInfo = new SourceInfo();
         sourceInfo.setName("四川成都电信");
@@ -126,6 +139,42 @@ class MulticastPlaylistServiceTest {
         response.setSource(sourceInfo);
         response.setChannels(List.of(channelInfo));
         return response;
+    }
+
+    private ChengduTelecomChannelResponse duplicateResponse() {
+        SourceInfo sourceInfo = new SourceInfo();
+        sourceInfo.setName("四川成都电信");
+
+        ChannelInfo highDefinition = new ChannelInfo();
+        highDefinition.setIndex(1);
+        highDefinition.setChannelName("四川卫视高清");
+        highDefinition.setMulticastAddress("239.94.0.59:5140");
+        highDefinition.setReplayUrl("rtsp://182.139.234.40/PLTV/88888896/224/3221227981/10000100000000060000000003732199_0.smil");
+        highDefinition.setVideoInfo(videoInfo("FHD"));
+
+        ChannelInfo ultraHd = new ChannelInfo();
+        ultraHd.setIndex(2);
+        ultraHd.setChannelName("四川卫视4K");
+        ultraHd.setMulticastAddress("239.94.0.115:5140");
+        ultraHd.setReplayUrl("rtsp://182.139.234.40/PLTV/88888896/224/3221228827/770652630.smil");
+        ultraHd.setVideoInfo(videoInfo("UHD"));
+
+        ChannelInfo pip = new ChannelInfo();
+        pip.setIndex(3);
+        pip.setChannelName("CCTV-1画中画-全网组播");
+        pip.setMulticastAddress("239.94.2.1:5140");
+
+        ChengduTelecomChannelResponse response = new ChengduTelecomChannelResponse();
+        response.setSuccess(true);
+        response.setSource(sourceInfo);
+        response.setChannels(List.of(highDefinition, ultraHd, pip));
+        return response;
+    }
+
+    private VideoInfo videoInfo(String resolution) {
+        VideoInfo videoInfo = new VideoInfo();
+        videoInfo.setResolution(resolution);
+        return videoInfo;
     }
 
     private static class TestableMulticastPlaylistService extends MulticastPlaylistService {
@@ -149,7 +198,7 @@ class MulticastPlaylistServiceTest {
             if (failOnFetch) {
                 throw new IllegalStateException("mock fetch failed");
             }
-            return response;
+            return postProcessChannelResponse(response);
         }
     }
 }

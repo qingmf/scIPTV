@@ -23,7 +23,9 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -66,23 +68,34 @@ public class MulticastPlaylistService {
                 throw new IllegalStateException("频道接口返回异常，未获取到有效频道数据");
             }
 
-            channelResponse.setChannels(channelResponse.getChannels().stream()
-                    .filter(Objects::nonNull)
-                    .filter(channel -> StringUtils.hasText(channel.getChannelName()))
-                    .sorted(Comparator.comparing(channel -> channel.getIndex() == null ? Integer.MAX_VALUE : channel.getIndex()))
-                    .toList());
-
-            if (channelResponse.getChannels().isEmpty()) {
-                throw new IllegalStateException("频道接口返回成功，但频道列表为空");
-            }
-
-            return channelResponse;
+            return postProcessChannelResponse(channelResponse);
         } catch (IOException e) {
             throw new IllegalStateException("解析频道接口返回内容失败", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("请求频道接口被中断", e);
         }
+    }
+
+    protected ChengduTelecomChannelResponse postProcessChannelResponse(ChengduTelecomChannelResponse channelResponse) {
+        channelResponse.setChannels(channelResponse.getChannels().stream()
+                .filter(Objects::nonNull)
+                .filter(channel -> StringUtils.hasText(channel.getChannelName()))
+                .filter(channel -> !isPictureInPictureChannel(channel))
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toList(),
+                        this::deduplicateChannels
+                )));
+
+        channelResponse.setChannels(channelResponse.getChannels().stream()
+                .sorted(Comparator.comparing(channel -> channel.getIndex() == null ? Integer.MAX_VALUE : channel.getIndex()))
+                .toList());
+
+        if (channelResponse.getChannels().isEmpty()) {
+            throw new IllegalStateException("频道接口返回成功，但频道列表为空");
+        }
+
+        return channelResponse;
     }
 
     public String buildM3uContent(PlaylistUrlType urlType) {
@@ -291,6 +304,71 @@ public class MulticastPlaylistService {
             return first + " | " + second;
         }
         return StringUtils.hasText(first) ? first : second;
+    }
+
+    private List<ChannelInfo> deduplicateChannels(List<ChannelInfo> channels) {
+        Map<String, ChannelInfo> selectedChannels = new LinkedHashMap<>();
+        for (ChannelInfo channel : channels) {
+            String key = normalizeDedupKey(channel.getChannelName());
+            ChannelInfo existing = selectedChannels.get(key);
+            if (existing == null || compareChannelPriority(channel, existing) < 0) {
+                selectedChannels.put(key, channel);
+            }
+        }
+        return selectedChannels.values().stream().toList();
+    }
+
+    private int compareChannelPriority(ChannelInfo candidate, ChannelInfo existing) {
+        return Integer.compare(channelPriority(candidate), channelPriority(existing));
+    }
+
+    private int channelPriority(ChannelInfo channel) {
+        String channelName = channel.getChannelName();
+        if (isUltraHdChannel(channelName, channel)) {
+            return 0;
+        }
+        if (isHighDefinitionChannel(channelName, channel)) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private boolean isPictureInPictureChannel(ChannelInfo channel) {
+        String channelName = channel.getChannelName();
+        return StringUtils.hasText(channelName) && channelName.contains("画中画");
+    }
+
+    private boolean isUltraHdChannel(String channelName, ChannelInfo channel) {
+        return containsIgnoreCase(channelName, "4K")
+                || containsIgnoreCase(channelName, "UHD")
+                || (channel.getVideoInfo() != null && "UHD".equalsIgnoreCase(channel.getVideoInfo().getResolution()));
+    }
+
+    private boolean isHighDefinitionChannel(String channelName, ChannelInfo channel) {
+        return containsIgnoreCase(channelName, "高清")
+                || (channel.getVideoInfo() != null && "FHD".equalsIgnoreCase(channel.getVideoInfo().getResolution()));
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return StringUtils.hasText(value) && value.toUpperCase().contains(keyword.toUpperCase());
+    }
+
+    private String normalizeDedupKey(String channelName) {
+        if (!StringUtils.hasText(channelName)) {
+            return "";
+        }
+
+        return channelName
+                .replace("高清", "")
+                .replace("标清", "")
+                .replace("超高清", "")
+                .replace("4K", "")
+                .replace("UHD", "")
+                .replace("＋", "+")
+                .replace("-全网组播", "")
+                .replace("-画中画", "")
+                .replace("画中画", "")
+                .trim();
     }
 
     private String buildM3uContentFromResponse(ChengduTelecomChannelResponse response, PlaylistUrlType urlType) {
