@@ -44,6 +44,8 @@
 - 拆分 `dev/prod` 配置，生产环境默认关闭 `Knife4j`
 - Docker 默认增加 JVM 内存参数，并在生产环境开启懒加载
 - 修复 Docker 构建阶段的 Maven Wrapper 兼容问题，改为使用 builder 镜像内置 `mvn`
+- 默认运行环境改回 `dev`，仅 Docker 部署显式使用 `prod`
+- 将 Docker 默认 JVM 参数压缩到 `64m/128m`，并切换为 `SerialGC`
 
 #### 涉及文件
 
