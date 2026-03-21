@@ -19,19 +19,31 @@
 - 必须使用 `Spring Boot 3`
 - 新增模块或功能优先采用 Spring Boot 3 官方推荐方式实现
 
-### 4. Lombok 使用要求
+### 4. Web 容器要求
+
+- 默认 Web 容器使用 `Undertow`
+- 不再以 `Tomcat` 作为首选运行容器
+- 生产部署时优先使用更轻量的容器组合以降低资源占用
+
+### 5. 并发模型要求
+
+- 基于 `JDK 21` 默认启用虚拟线程能力
+- 对 I/O 型任务优先兼容虚拟线程运行方式
+- 新增代码应避免无必要地绑定重量级平台线程设计
+
+### 6. Lombok 使用要求
 
 - 实体对象必须使用 `Lombok`
 - 优先通过 `@Data`、`@Getter`、`@Setter`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor` 等注解减少模板代码
 - 使用时应保持语义清晰，避免因注解堆叠影响可读性
 
-### 5. ORM 选型要求
+### 7. ORM 选型要求
 
 - 如果项目引入数据库能力，ORM 必须使用 `MyBatis Flex`
 - 禁止在数据库持久层引入其他 ORM 框架作为主方案
 - 数据访问层设计需与 `MyBatis Flex` 的使用方式保持一致
 
-### 6. 接口文档要求
+### 8. 接口文档要求
 
 - 项目必须引入 `Knife4j`
 - `Knife4j` 底层文档规范基于 OpenAPI 3

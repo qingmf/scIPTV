@@ -46,6 +46,8 @@
 - 修复 Docker 构建阶段的 Maven Wrapper 兼容问题，改为使用 builder 镜像内置 `mvn`
 - 默认运行环境改回 `dev`，仅 Docker 部署显式使用 `prod`
 - 将 Docker 默认 JVM 参数压缩到 `64m/128m`，并切换为 `SerialGC`
+- Web 容器从 `Tomcat` 切换为 `Undertow`
+- 启用 `JDK 21` 虚拟线程支持
 
 #### 涉及文件
 

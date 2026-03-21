@@ -25,6 +25,8 @@
 - JDK 21
 - Maven
 - Spring Boot 3
+- Undertow
+- JDK 21 虚拟线程
 
 详细规范见：[docs/CODING_STANDARDS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/CODING_STANDARDS.md)
 
@@ -58,6 +60,8 @@ scIPTV/
 - 配置 `JDK 21` 编译版本
 - 引入 `Lombok`
 - 引入 `Knife4j` 接口文档能力
+- Web 容器切换为 `Undertow`
+- 开启 `JDK 21` 虚拟线程支持
 - 建立应用启动类
 - 建立基础配置文件 `application.yml`
 - 提供基础健康检查接口 `/api/health`
@@ -197,6 +201,8 @@ SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
 - `prod` 环境开启 `lazy-initialization`
 - Docker 默认设置 JVM 堆参数为 `-Xms64m -Xmx128m`
 - Docker 默认使用 `SerialGC` 压缩小内存场景占用
+- Web 容器使用 `Undertow`
+- 默认启用 `JDK 21` 虚拟线程
 
 开发环境如需访问接口文档，请显式使用：
 
