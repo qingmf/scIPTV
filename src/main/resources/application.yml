@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: scIPTV
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    com.sciptv: INFO
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    disable-swagger-default-url: true
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
