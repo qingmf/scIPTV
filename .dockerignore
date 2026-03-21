@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+target
+output
+docs
+template
+Dockerfile
+docker-compose.yml
+README.md
+*.iml
