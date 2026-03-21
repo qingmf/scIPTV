@@ -1,4 +1,4 @@
-#EXTM3U name="四川成都电信 - 2026-03-21 11:09:33" url-tvg="https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml"
+#EXTM3U name="四川成都电信 - 2026-03-21 11:17:55" url-tvg="https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml"
 
 #EXTINF:-1 tvg-logo="" tvg-id="1" tvg-name="CCTV-1" group-title="四川成都电信" catchup="default" catchup-source="http://192.168.3.1:8188/rtsp/182.139.234.40/PLTV/88888896/224/3221228807/10000100000000060000000003732597_0.smil?playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}",CCTV-1
 http://192.168.3.1:8188/rtp/239.94.0.31:5140?FCC=182.139.234.40:8027

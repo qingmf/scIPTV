@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.net.URLEncoder;
 
 @Tag(name = "Playlist", description = "四川成都电信组播播放列表生成接口")
 @RestController
@@ -36,7 +37,7 @@ public class PlaylistController {
         PlaylistSnapshot snapshot = multicastPlaylistService.getM3uSnapshot(urlType);
         return ResponseEntity.ok()
                 .header("X-SCIPTV-Fallback-Used", String.valueOf(Boolean.TRUE.equals(snapshot.getFallbackUsed())))
-                .header("X-SCIPTV-Message", snapshot.getMessage())
+                .header("X-SCIPTV-Message", encodeHeaderValue(snapshot.getMessage()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename("chengdu-telecom-" + urlType.name().toLowerCase() + ".m3u", StandardCharsets.UTF_8)
                         .build()
@@ -53,7 +54,7 @@ public class PlaylistController {
         PlaylistSnapshot snapshot = multicastPlaylistService.getAptvSnapshot(urlType);
         return ResponseEntity.ok()
                 .header("X-SCIPTV-Fallback-Used", String.valueOf(Boolean.TRUE.equals(snapshot.getFallbackUsed())))
-                .header("X-SCIPTV-Message", snapshot.getMessage())
+                .header("X-SCIPTV-Message", encodeHeaderValue(snapshot.getMessage()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename("chengdu-telecom-" + urlType.name().toLowerCase() + ".txt", StandardCharsets.UTF_8)
                         .build()
@@ -68,5 +69,12 @@ public class PlaylistController {
             @Parameter(description = "播放地址类型，可选 HTTP 或 RTP")
             @RequestParam(defaultValue = "HTTP") PlaylistUrlType urlType) {
         return multicastPlaylistService.generatePlaylistFiles(urlType);
+    }
+
+    private String encodeHeaderValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }
