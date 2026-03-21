@@ -76,11 +76,149 @@ scIPTV/
 项目已内置 Maven Wrapper，无需单独安装 Maven。
 
 ```bash
-./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
 ```
 
 ```bash
 ./mvnw test
+```
+
+## 最新播放列表获取
+
+项目已提供通过 Java 代码实时抓取四川成都电信最新组播数据的接口。
+
+- 在线获取 M3U：
+  `GET /api/playlists/chengdu-telecom/m3u?urlType=HTTP`
+- 在线获取 APTV：
+  `GET /api/playlists/chengdu-telecom/aptv?urlType=HTTP`
+- 生成本地文件：
+  `POST /api/playlists/chengdu-telecom/generate?urlType=HTTP`
+
+`urlType` 支持：
+
+- `HTTP`：使用 `http://192.168.3.1:8188/rtp/...` 地址，兼容性更高
+- `RTP`：使用 `rtp://239.x.x.x:5140` 组播地址，适合支持 RTP 的播放器
+
+当前 `M3U` 文件会自动带上以下 EPG 节目预告源：
+
+- `https://epg.51zmt.top:8001/e.xml`
+- `https://epg.112114.xyz/pp.xml`
+
+EPG 地址列表也支持通过环境变量覆盖：
+
+```bash
+export SCIPTV_EPG_URLS=https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml
+```
+
+未设置时默认使用：
+
+```text
+https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml
+```
+
+HTTP 播放前缀支持通过环境变量覆盖：
+
+```bash
+export SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188
+```
+
+未设置时默认使用：
+
+```text
+http://192.168.3.1:8188
+```
+
+FCC 加速地址也支持通过环境变量覆盖：
+
+```bash
+export SCIPTV_FCC_ADDRESS=182.139.234.40:8027
+```
+
+未设置时默认使用：
+
+```text
+182.139.234.40:8027
+```
+
+生成文件默认输出到：
+
+```text
+output/playlists/
+```
+
+同时会额外维护固定文件名的最近一次成功快照：
+
+```text
+output/playlists/chengdu-telecom-latest-http.m3u
+output/playlists/chengdu-telecom-latest-http.txt
+output/playlists/chengdu-telecom-latest-rtp.m3u
+output/playlists/chengdu-telecom-latest-rtp.txt
+```
+
+## Docker 运行
+
+### 本地构建镜像
+
+```bash
+docker build -t sciptv:latest .
+```
+
+### Docker Compose 启动
+
+```bash
+docker compose up -d --build
+```
+
+### 环境变量
+
+- `SCIPTV_HTTP_PROXY_BASE_URL`
+  默认值：`http://192.168.3.1:8188`
+- `SCIPTV_EPG_URLS`
+  默认值：`https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml`
+- `SCIPTV_FCC_ADDRESS`
+  默认值：`182.139.234.40:8027`
+- `SPRING_PROFILES_ACTIVE`
+  默认值：`prod`
+- `JAVA_OPTS`
+  默认值：`-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=25`
+
+示例：
+
+```bash
+SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
+```
+
+## 内存优化
+
+当前默认优化策略：
+
+- 默认使用 `prod` 环境启动
+- `prod` 环境关闭 `Knife4j` 和 OpenAPI 文档
+- `prod` 环境开启 `lazy-initialization`
+- Docker 默认设置 JVM 堆参数为 `-Xms128m -Xmx256m`
+
+开发环境如需访问接口文档，请显式使用：
+
+```bash
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+```
+
+## GitHub Actions 发布镜像
+
+仓库已补充 Docker 发布工作流：
+
+- 工作流文件：[.github/workflows/docker-publish.yml](/Volumes/ExtSSD/Dev/java/scIPTV/.github/workflows/docker-publish.yml)
+- 触发条件：`main` 分支 push，或手动触发 `workflow_dispatch`
+
+发布到 Docker Hub 前，你需要在 GitHub 仓库 Secrets 中配置：
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+推送成功后，镜像名格式为：
+
+```text
+docker.io/<DOCKERHUB_USERNAME>/sciptv
 ```
 
 ## 下一步建议

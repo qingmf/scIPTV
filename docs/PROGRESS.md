@@ -29,6 +29,21 @@
 - 将接口文档方案从 `Swagger UI` 主入口切换为 `Knife4j`
 - 补充 `Maven Wrapper`，支持通过 `./mvnw` 直接构建项目
 - 执行 `./mvnw test`，确认当前骨架编译与启动测试通过
+- 新增 Java 实时抓取四川成都电信组播地址的服务实现
+- 新增 M3U 与 APTV 在线生成接口和本地文件输出能力
+- 新增播放列表生成测试
+- 修复 `JDK 21` 下 Mockito 测试兼容问题，确保 `./mvnw test` 可通过
+- 将 HTTP 播放地址前缀切换为 `http://192.168.3.1:8188`
+- 为 M3U 播放列表增加 EPG 节目预告源配置
+- 将 HTTP 播放前缀改为环境变量驱动，默认值保留为 `http://192.168.3.1:8188`
+- 新增 `Dockerfile`、`.dockerignore` 与 `docker-compose.yml`
+- 新增 GitHub Actions 工作流，支持 `main` 分支自动发布 Docker Hub 镜像
+- 为播放列表增加固定文件名的最近一次成功快照，服务重启后仍可回退
+- 将 FCC 加速地址改为环境变量驱动，默认值保留为 `182.139.234.40:8027`
+- 将 EPG 地址列表改为环境变量驱动，默认值保留为两个现有源
+- 拆分 `dev/prod` 配置，生产环境默认关闭 `Knife4j`
+- Docker 默认增加 JVM 内存参数，并在生产环境开启懒加载
+- 修复 Docker 构建阶段的 Maven Wrapper 兼容问题，改为使用 builder 镜像内置 `mvn`
 
 #### 涉及文件
 
@@ -48,6 +63,24 @@
 - `mvnw.cmd`
 - `.gitignore`
 - `docs/CODING_STANDARDS.md`
+- `src/main/java/com/sciptv/config/PlaylistProperties.java`
+- `src/main/java/com/sciptv/controller/PlaylistController.java`
+- `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
+- `src/main/java/com/sciptv/model/multicast/ChengduTelecomChannelResponse.java`
+- `src/main/java/com/sciptv/model/multicast/ChannelInfo.java`
+- `src/main/java/com/sciptv/model/multicast/SourceInfo.java`
+- `src/main/java/com/sciptv/model/multicast/VideoInfo.java`
+- `src/main/java/com/sciptv/model/playlist/GeneratedPlaylistResult.java`
+- `src/main/java/com/sciptv/model/playlist/PlaylistUrlType.java`
+- `src/test/java/com/sciptv/service/MulticastPlaylistServiceTest.java`
+- `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`
+- `.dockerignore`
+- `Dockerfile`
+- `docker-compose.yml`
+- `.github/workflows/docker-publish.yml`
+- `src/main/resources/application.yml`
+- `src/main/resources/application-dev.yml`
+- `src/main/resources/application-prod.yml`
 
 #### 当前状态
 
