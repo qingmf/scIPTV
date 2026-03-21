@@ -35,6 +35,15 @@
 - 项目说明：当前文件 `README.md`
 - 进度记录：[docs/PROGRESS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/PROGRESS.md)
 - 编码规范：[docs/CODING_STANDARDS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/CODING_STANDARDS.md)
+- 会话上下文：[docs/SESSION_CONTEXT.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/SESSION_CONTEXT.md)
+
+## 协作入口
+
+如果是新会话或需要快速恢复项目上下文，建议优先阅读：
+
+- [docs/SESSION_CONTEXT.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/SESSION_CONTEXT.md)
+- [docs/PROGRESS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/PROGRESS.md)
+- [README.md](/Volumes/ExtSSD/Dev/java/scIPTV/README.md)
 
 ## 建议目录规划
 
