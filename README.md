@@ -76,7 +76,7 @@ scIPTV/
 项目已内置 Maven Wrapper，无需单独安装 Maven。
 
 ```bash
-./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
 ```
 
 ```bash
@@ -177,11 +177,30 @@ docker compose up -d --build
   默认值：`https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml`
 - `SCIPTV_FCC_ADDRESS`
   默认值：`182.139.234.40:8027`
+- `SPRING_PROFILES_ACTIVE`
+  默认值：`prod`
+- `JAVA_OPTS`
+  默认值：`-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=25`
 
 示例：
 
 ```bash
 SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
+```
+
+## 内存优化
+
+当前默认优化策略：
+
+- 默认使用 `prod` 环境启动
+- `prod` 环境关闭 `Knife4j` 和 OpenAPI 文档
+- `prod` 环境开启 `lazy-initialization`
+- Docker 默认设置 JVM 堆参数为 `-Xms128m -Xmx256m`
+
+开发环境如需访问接口文档，请显式使用：
+
+```bash
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
 ```
 
 ## GitHub Actions 发布镜像

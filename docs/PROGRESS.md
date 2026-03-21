@@ -41,6 +41,8 @@
 - 为播放列表增加固定文件名的最近一次成功快照，服务重启后仍可回退
 - 将 FCC 加速地址改为环境变量驱动，默认值保留为 `182.139.234.40:8027`
 - 将 EPG 地址列表改为环境变量驱动，默认值保留为两个现有源
+- 拆分 `dev/prod` 配置，生产环境默认关闭 `Knife4j`
+- Docker 默认增加 JVM 内存参数，并在生产环境开启懒加载
 
 #### 涉及文件
 
@@ -75,6 +77,9 @@
 - `Dockerfile`
 - `docker-compose.yml`
 - `.github/workflows/docker-publish.yml`
+- `src/main/resources/application.yml`
+- `src/main/resources/application-dev.yml`
+- `src/main/resources/application-prod.yml`
 
 #### 当前状态
 
