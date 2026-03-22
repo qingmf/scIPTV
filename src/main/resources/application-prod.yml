@@ -1,5 +1,8 @@
 spring:
+  jmx:
+    enabled: false
   main:
+    banner-mode: off
     lazy-initialization: true
   autoconfigure:
     exclude:
@@ -9,6 +12,13 @@ spring:
       - org.springdoc.core.configuration.SpringDocUIConfiguration
       - org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration
       - org.springdoc.webmvc.core.configuration.MultipleOpenApiSupportConfiguration
+
+server:
+  shutdown: immediate
+  undertow:
+    threads:
+      io: 1
+      worker: 8
 
 springdoc:
   api-docs:

@@ -28,22 +28,29 @@
 - Undertow
 - JDK 21 虚拟线程
 
-详细规范见：[docs/CODING_STANDARDS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/CODING_STANDARDS.md)
+详细规范见：[`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md)
 
 ## 文档说明
 
 - 项目说明：当前文件 `README.md`
-- 进度记录：[docs/PROGRESS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/PROGRESS.md)
-- 编码规范：[docs/CODING_STANDARDS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/CODING_STANDARDS.md)
-- 会话上下文：[docs/SESSION_CONTEXT.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/SESSION_CONTEXT.md)
+- 进度记录：[`docs/PROGRESS.md`](docs/PROGRESS.md)
+- 编码规范：[`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md)
+- 会话上下文：[`docs/SESSION_CONTEXT.md`](docs/SESSION_CONTEXT.md)
+
+各文档分工建议如下：
+
+- `README.md`：项目定位、能力说明、运行方式、对外接口
+- `docs/SESSION_CONTEXT.md`：新会话快速恢复上下文时优先阅读
+- `docs/PROGRESS.md`：记录每轮已完成修改、当前状态和下一步建议
+- `docs/CODING_STANDARDS.md`：工程约束、分层要求和开发规范
 
 ## 协作入口
 
 如果是新会话或需要快速恢复项目上下文，建议优先阅读：
 
-- [docs/SESSION_CONTEXT.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/SESSION_CONTEXT.md)
-- [docs/PROGRESS.md](/Volumes/ExtSSD/Dev/java/scIPTV/docs/PROGRESS.md)
-- [README.md](/Volumes/ExtSSD/Dev/java/scIPTV/README.md)
+- [`docs/SESSION_CONTEXT.md`](docs/SESSION_CONTEXT.md)
+- [`docs/PROGRESS.md`](docs/PROGRESS.md)
+- [`README.md`](README.md)
 
 ## 建议目录规划
 
@@ -63,7 +70,7 @@ scIPTV/
 │   └── test/
 ```
 
-## 当前已完成骨架
+## 当前已实现能力
 
 - 基于 `Spring Boot 3` 初始化 Maven 工程
 - 配置 `JDK 21` 编译版本
@@ -75,6 +82,20 @@ scIPTV/
 - 建立基础配置文件 `application.yml`
 - 提供基础健康检查接口 `/api/health`
 - 增加最小化启动测试
+- 对接四川成都电信官方组播源并实时抓取频道数据
+- 支持在线生成 `M3U` 与 `APTV` 播放列表
+- 支持将生成结果落盘到 `output/playlists/`
+- 支持内存快照和本地文件快照回退
+- 支持过滤 `画中画` 频道并对同名频道做优先级去重
+
+## 当前范围说明
+
+为避免误解，当前版本的能力边界如下：
+
+- 当前仅内置一个采集源：`四川成都电信`
+- 当前主要提供“抓取并生成播放列表”的能力，尚未扩展到多地区、多运营商统一整合
+- 当前暂未引入数据库、任务调度、后台管理、统一返回体和全局异常处理
+- 当前更适合作为可运行的基础服务，而不是已经完成工程化抽象的成熟平台
 
 ## 接口文档
 
@@ -168,6 +189,16 @@ output/playlists/chengdu-telecom-latest-rtp.m3u
 output/playlists/chengdu-telecom-latest-rtp.txt
 ```
 
+当实时抓取失败时，服务会按以下顺序回退：
+
+1. 当前进程内最近一次成功抓取的数据
+2. 最近一次成功生成并落盘的固定文件名快照
+
+下载接口还会通过响应头返回回退信息：
+
+- `X-SCIPTV-Fallback-Used`：是否使用了回退数据
+- `X-SCIPTV-Message`：当前生成结果说明
+
 ## Docker 运行
 
 ### 本地构建镜像
@@ -193,7 +224,7 @@ docker compose up -d --build
 - `SPRING_PROFILES_ACTIVE`
   默认值：`prod`（仅 Docker 环境）
 - `JAVA_OPTS`
-  默认值：`-Xms64m -Xmx128m -XX:+UseSerialGC -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=32m -XX:+TieredCompilation -XX:TieredStopAtLevel=1`
+  默认值：`-Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError`
 
 示例：
 
@@ -208,9 +239,12 @@ SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
 - Docker 默认使用 `prod` 环境启动
 - `prod` 环境关闭 `Knife4j` 和 OpenAPI 文档
 - `prod` 环境开启 `lazy-initialization`
-- Docker 默认设置 JVM 堆参数为 `-Xms64m -Xmx128m`
+- Docker 默认设置 JVM 堆参数为 `-Xms32m -Xmx96m`
 - Docker 默认使用 `SerialGC` 压缩小内存场景占用
+- Docker 默认限制 `ActiveProcessorCount=1`，减少编译线程和调度开销
+- Docker 默认限制 `MaxMetaspaceSize=64m` 与 `ReservedCodeCacheSize=24m`
 - Web 容器使用 `Undertow`
+- `prod` 环境关闭 `JMX`、关闭 Banner，并收紧 Undertow 线程数
 - 默认启用 `JDK 21` 虚拟线程
 
 开发环境如需访问接口文档，请显式使用：
@@ -223,7 +257,7 @@ SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
 
 仓库已补充 Docker 发布工作流：
 
-- 工作流文件：[.github/workflows/docker-publish.yml](/Volumes/ExtSSD/Dev/java/scIPTV/.github/workflows/docker-publish.yml)
+- 工作流文件：[`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)
 - 触发条件：`main` 分支 push，或手动触发 `workflow_dispatch`
 
 发布到 Docker Hub 前，你需要在 GitHub 仓库 Secrets 中配置：

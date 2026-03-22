@@ -27,6 +27,7 @@
 - 已支持生成：
   - `M3U`
   - `APTV`
+- 已支持 `HTTP` 与 `RTP` 两种播放地址输出模式
 - 已支持输出到本地文件
 - 已支持固定文件名快照，便于回退
 
@@ -46,7 +47,21 @@
 2. 若内存无数据，则回退到最近一次成功生成的文件
 3. 同时维护固定文件名快照，便于服务重启后继续回退
 
-## 三、当前接口
+下载接口会通过以下响应头提示当前状态：
+
+- `X-SCIPTV-Fallback-Used`
+- `X-SCIPTV-Message`
+
+## 三、当前范围边界
+
+当前项目已经具备可运行的播放列表服务能力，但仍有以下边界需要明确：
+
+- 当前仅内置 `四川成都电信` 这一类采集源
+- 当前重点是“实时抓取并生成播放列表”，还不是多地区、多运营商统一整合平台
+- 当前尚未落地统一返回体、全局异常处理、调度任务、数据库存储和后台管理
+- 当前核心业务仍然集中在单个服务类中，后续需要继续工程化拆分
+
+## 四、当前接口
 
 ### 1. 健康检查
 
@@ -58,7 +73,7 @@
 - `GET /api/playlists/chengdu-telecom/aptv?urlType=HTTP`
 - `POST /api/playlists/chengdu-telecom/generate?urlType=HTTP`
 
-## 四、关键文件
+## 五、关键文件
 
 ### 1. 项目说明
 
@@ -78,7 +93,14 @@
 - `src/main/java/com/sciptv/controller/PlaylistController.java`
 - `src/main/java/com/sciptv/config/PlaylistProperties.java`
 
-## 五、当前运行方式
+### 5. 当前主要文档
+
+- `README.md`：项目说明、运行方式、接口使用说明
+- `docs/SESSION_CONTEXT.md`：快速恢复会话上下文
+- `docs/PROGRESS.md`：历史修改记录与下一步建议
+- `docs/CODING_STANDARDS.md`：工程约束与编码规范
+
+## 六、当前运行方式
 
 ### 1. 本地开发
 
@@ -97,7 +119,7 @@
 - Docker 默认开启低内存参数
 - Docker 默认关闭文档能力
 
-## 六、当前环境变量
+## 七、当前环境变量
 
 ### 1. 播放地址相关
 
@@ -119,9 +141,9 @@
   - Docker 默认：`prod`
 - `JAVA_OPTS`
   - Docker 当前默认：
-    `-Xms64m -Xmx128m -XX:+UseSerialGC -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=32m -XX:+TieredCompilation -XX:TieredStopAtLevel=1`
+    `-Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError`
 
-## 七、当前技术决策
+## 八、当前技术决策
 
 ### 1. Web 与并发
 
@@ -134,12 +156,19 @@
 - `prod` 环境关闭 `Knife4j` 和 `springdoc`
 - `prod` 环境通过自动配置排除进一步降低启动负担
 
-### 3. 回退策略
+### 3. 低内存运行策略
+
+- Docker 默认堆内存进一步压缩到 `32m/96m`
+- Docker 默认限制 `ActiveProcessorCount=1`，减少小容器场景下的额外线程开销
+- `prod` 环境关闭 `JMX`、关闭 Banner，并将 Undertow 线程数收紧为更小配置
+- 运行时服务仅保留单份最近一次成功抓取响应，减少按 URL 类型重复缓存的对象占用
+
+### 4. 回退策略
 
 - 下载接口使用响应头返回回退状态
 - 中文提示信息已做 header-safe 处理，避免 Tomcat/Servlet 头编码问题
 
-## 八、当前已知注意点
+## 九、当前已知注意点
 
 - 如果生产环境要进一步降内存，下一阶段可考虑：
   - 彻底将文档依赖从生产构建链路中剥离
@@ -148,8 +177,10 @@
 - GitHub Actions 依赖以下仓库 Secrets：
   - `DOCKERHUB_USERNAME`
   - `DOCKERHUB_TOKEN`
+- 文档中提到的“地址整合平台”仍是中长期方向，当前实现应理解为“成都电信播放列表抓取与导出服务”
+- 生成本地文件时当前仍会分别生成两种格式，后续可继续优化为同一批抓取数据统一产出
 
-## 九、下次继续时推荐提示词
+## 十、下次继续时推荐提示词
 
 下次进入新会话时，建议直接这样说：
 

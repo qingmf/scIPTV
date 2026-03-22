@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -44,7 +45,7 @@ public class MulticastPlaylistService {
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
-    private final ConcurrentHashMap<PlaylistUrlType, ChengduTelecomChannelResponse> latestSuccessfulResponses = new ConcurrentHashMap<>();
+    private final AtomicReference<ChengduTelecomChannelResponse> latestSuccessfulResponse = new AtomicReference<>();
     private final ConcurrentHashMap<String, PlaylistSnapshot> latestSuccessfulPlaylists = new ConcurrentHashMap<>();
 
     public ChengduTelecomChannelResponse fetchLatestChannels() {
@@ -110,8 +111,9 @@ public class MulticastPlaylistService {
         Path outputDir = playlistProperties.getOutputDir();
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FILE_TIME_FORMATTER);
-        PlaylistSnapshot m3uSnapshot = getM3uSnapshot(urlType);
-        PlaylistSnapshot aptvSnapshot = getAptvSnapshot(urlType);
+        PlaylistGeneration generation = buildSnapshots(urlType);
+        PlaylistSnapshot m3uSnapshot = generation.m3uSnapshot();
+        PlaylistSnapshot aptvSnapshot = generation.aptvSnapshot();
 
         try {
             Files.createDirectories(outputDir);
@@ -154,15 +156,16 @@ public class MulticastPlaylistService {
     private PlaylistSnapshot getPlaylistSnapshot(PlaylistUrlType urlType, String format) {
         try {
             ChengduTelecomChannelResponse response = fetchLatestChannels();
-            latestSuccessfulResponses.put(urlType, response);
+            latestSuccessfulResponse.set(response);
             PlaylistSnapshot snapshot = buildSnapshotFromResponse(response, urlType, format, false, "实时抓取成功");
             cacheGeneratedPlaylist(snapshotKey(format, urlType), snapshot);
             persistLatestSuccessSnapshot(format, urlType, snapshot);
             return snapshot;
         } catch (Exception ex) {
-            ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponses.get(urlType);
+            ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponse.get();
             if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
-                return buildSnapshotFromResponse(fallbackResponse, urlType, format, true, "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
+                return buildSnapshotFromResponse(fallbackResponse, urlType, format, true,
+                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
             }
 
             PlaylistSnapshot fileSnapshot = readLatestGeneratedPlaylist(format, urlType);
@@ -174,6 +177,53 @@ public class MulticastPlaylistService {
 
             throw new IllegalStateException("实时抓取失败，且没有可用的最近一次成功数据", ex);
         }
+    }
+
+    private PlaylistGeneration buildSnapshots(PlaylistUrlType urlType) {
+        try {
+            ChengduTelecomChannelResponse response = fetchLatestChannels();
+            latestSuccessfulResponse.set(response);
+            return createAndCacheSnapshots(response, urlType, false, "实时抓取成功");
+        } catch (Exception ex) {
+            ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponse.get();
+            if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
+                return createSnapshotsWithoutCaching(fallbackResponse, urlType, true,
+                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
+            }
+
+            PlaylistGeneration fileGeneration = readLatestGeneratedPlaylists(urlType);
+            if (fileGeneration != null) {
+                fileGeneration.m3uSnapshot().setFallbackUsed(true);
+                fileGeneration.m3uSnapshot().setMessage("实时抓取失败，已回退到最近一次成功生成的文件: " + ex.getMessage());
+                fileGeneration.aptvSnapshot().setFallbackUsed(true);
+                fileGeneration.aptvSnapshot().setMessage("实时抓取失败，已回退到最近一次成功生成的文件: " + ex.getMessage());
+                return fileGeneration;
+            }
+
+            throw new IllegalStateException("实时抓取失败，且没有可用的最近一次成功数据", ex);
+        }
+    }
+
+    private PlaylistGeneration createAndCacheSnapshots(ChengduTelecomChannelResponse response,
+                                                       PlaylistUrlType urlType,
+                                                       boolean fallbackUsed,
+                                                       String message) {
+        PlaylistGeneration generation = createSnapshotsWithoutCaching(response, urlType, fallbackUsed, message);
+        cacheGeneratedPlaylist(snapshotKey("m3u", urlType), generation.m3uSnapshot());
+        cacheGeneratedPlaylist(snapshotKey("aptv", urlType), generation.aptvSnapshot());
+        persistLatestSuccessSnapshot("m3u", urlType, generation.m3uSnapshot());
+        persistLatestSuccessSnapshot("aptv", urlType, generation.aptvSnapshot());
+        return generation;
+    }
+
+    private PlaylistGeneration createSnapshotsWithoutCaching(ChengduTelecomChannelResponse response,
+                                                             PlaylistUrlType urlType,
+                                                             boolean fallbackUsed,
+                                                             String message) {
+        return new PlaylistGeneration(
+                buildSnapshotFromResponse(response, urlType, "m3u", fallbackUsed, message),
+                buildSnapshotFromResponse(response, urlType, "aptv", fallbackUsed, message)
+        );
     }
 
     private PlaylistSnapshot buildSnapshotFromResponse(ChengduTelecomChannelResponse response,
@@ -201,11 +251,11 @@ public class MulticastPlaylistService {
         latestSuccessfulPlaylists.put(key, snapshot);
     }
 
-    private PlaylistSnapshot readLatestGeneratedPlaylist(String format, PlaylistUrlType urlType) {
-        String key = snapshotKey(format, urlType);
-        PlaylistSnapshot cached = latestSuccessfulPlaylists.get(key);
-        if (cached != null && StringUtils.hasText(cached.getContent())) {
-            return cached;
+    private PlaylistGeneration readLatestGeneratedPlaylists(PlaylistUrlType urlType) {
+        PlaylistSnapshot cachedM3u = latestSuccessfulPlaylists.get(snapshotKey("m3u", urlType));
+        PlaylistSnapshot cachedAptv = latestSuccessfulPlaylists.get(snapshotKey("aptv", urlType));
+        if (hasContent(cachedM3u) && hasContent(cachedAptv)) {
+            return new PlaylistGeneration(cachedM3u, cachedAptv);
         }
 
         Path outputDir = playlistProperties.getOutputDir();
@@ -213,29 +263,25 @@ public class MulticastPlaylistService {
             return null;
         }
 
-        String suffix = switch (format) {
-            case "m3u" -> ".m3u";
-            case "aptv" -> ".txt";
-            default -> throw new IllegalArgumentException("不支持的播放列表格式: " + format);
-        };
+        PlaylistSnapshot latestM3u = readLatestGeneratedPlaylist("m3u", urlType);
+        PlaylistSnapshot latestAptv = readLatestGeneratedPlaylist("aptv", urlType);
+        if (!hasContent(latestM3u) || !hasContent(latestAptv)) {
+            return null;
+        }
+
+        latestSuccessfulPlaylists.put(snapshotKey("m3u", urlType), latestM3u);
+        latestSuccessfulPlaylists.put(snapshotKey("aptv", urlType), latestAptv);
+        return new PlaylistGeneration(latestM3u, latestAptv);
+    }
+
+    private PlaylistSnapshot readLatestGeneratedPlaylist(String format, PlaylistUrlType urlType) {
+        String suffix = "m3u".equals(format) ? ".m3u" : ".txt";
+        Path outputDir = playlistProperties.getOutputDir();
         Path stableSnapshotPath = outputDir.resolve("chengdu-telecom-latest-" + urlType.name().toLowerCase() + suffix);
-        if (Files.exists(stableSnapshotPath)) {
-            try {
-                String content = Files.readString(stableSnapshotPath, StandardCharsets.UTF_8);
-                if (StringUtils.hasText(content)) {
-                    PlaylistSnapshot snapshot = PlaylistSnapshot.builder()
-                            .sourceName("四川成都电信")
-                            .channelCount(countChannels(content, format))
-                            .generatedAt(LocalDateTime.now().format(DISPLAY_TIME_FORMATTER))
-                            .content(content)
-                            .fallbackUsed(true)
-                            .message("已回退到最近一次成功快照文件: " + stableSnapshotPath.getFileName())
-                            .build();
-                    latestSuccessfulPlaylists.put(key, snapshot);
-                    return snapshot;
-                }
-            } catch (IOException ignored) {
-            }
+        PlaylistSnapshot stableSnapshot = readSnapshotFile(stableSnapshotPath, format,
+                "已回退到最近一次成功快照文件: " + stableSnapshotPath.getFileName());
+        if (stableSnapshot != null) {
+            return stableSnapshot;
         }
 
         String prefix = "chengdu-telecom-" + urlType.name().toLowerCase() + "-";
@@ -252,24 +298,39 @@ public class MulticastPlaylistService {
                 return null;
             }
 
-            String content = Files.readString(latestFile, StandardCharsets.UTF_8);
+            return readSnapshotFile(latestFile, format,
+                    "已回退到最近一次成功生成的文件: " + latestFile.getFileName());
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private PlaylistSnapshot readSnapshotFile(Path path, String format, String message) {
+        if (!Files.exists(path)) {
+            return null;
+        }
+
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
             if (!StringUtils.hasText(content)) {
                 return null;
             }
 
-            PlaylistSnapshot snapshot = PlaylistSnapshot.builder()
+            return PlaylistSnapshot.builder()
                     .sourceName("四川成都电信")
                     .channelCount(countChannels(content, format))
                     .generatedAt(LocalDateTime.now().format(DISPLAY_TIME_FORMATTER))
                     .content(content)
                     .fallbackUsed(true)
-                    .message("已回退到最近一次成功生成的文件: " + latestFile.getFileName())
+                    .message(message)
                     .build();
-            latestSuccessfulPlaylists.put(key, snapshot);
-            return snapshot;
         } catch (IOException e) {
             return null;
         }
+    }
+
+    private boolean hasContent(PlaylistSnapshot snapshot) {
+        return snapshot != null && StringUtils.hasText(snapshot.getContent());
     }
 
     private int countChannels(String content, String format) {
@@ -482,5 +543,8 @@ public class MulticastPlaylistService {
 
     private String escapeAttribute(String value) {
         return value == null ? "" : value.replace("\"", "&quot;");
+    }
+
+    private record PlaylistGeneration(PlaylistSnapshot m3uSnapshot, PlaylistSnapshot aptvSnapshot) {
     }
 }
