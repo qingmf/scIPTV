@@ -70,7 +70,7 @@ jobs:
           s config add \
             --AccessKeyID "${ALIBABA_CLOUD_ACCESS_KEY_ID}" \
             --AccessKeySecret "${ALIBABA_CLOUD_ACCESS_KEY_SECRET}" \
-            --Access default \
+            --access default \
             --force
 
       - name: Deploy to Aliyun FC
