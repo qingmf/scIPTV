@@ -66,6 +66,18 @@ class ScIptvApplicationTests {
         }
     }
 
+    @Test
+    void shouldPreferRequestHttpProxyBaseUrlOverEnvironmentDefault() throws Exception {
+        TestablePlaylistService playlistService = new TestablePlaylistService(new PlaylistProperties(), objectMapper, mockResponse());
+        try (RunningApp runningApp = startApp(playlistService)) {
+            HttpResponse<String> response = sendGet(runningApp.baseUrl()
+                    + "/api/playlists/chengdu-telecom/m3u?urlType=HTTP&SCIPTV_HTTP_PROXY_BASE_URL=http://10.0.0.1:9999");
+
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).contains("http://10.0.0.1:9999/rtp/239.94.0.31:5140?FCC=182.139.234.40:8027");
+        }
+    }
+
     private RunningApp startApp(MulticastPlaylistService playlistService) throws IOException {
         int port = findFreePort();
         Javalin app = ScIptvApplication.createApp(playlistService, objectMapper).start(port);

@@ -38,6 +38,17 @@ class MulticastPlaylistServiceTest {
     }
 
     @Test
+    void shouldPreferRequestHttpProxyBaseUrlOverrideWhenBuildingHttpPlaylist() {
+        PlaylistProperties properties = new PlaylistProperties();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), mockResponse());
+
+        String m3u = service.buildM3uContent(PlaylistUrlType.HTTP, "http://10.10.10.10:7777");
+
+        assertThat(m3u).contains("http://10.10.10.10:7777/rtp/239.94.0.31:5140?FCC=182.139.234.40:8027");
+        assertThat(m3u).contains("catchup-source=\"http://10.10.10.10:7777/rtsp/182.139.234.40/PLTV/88888896/224/3221228807/10000100000000060000000003732597_0.smil?playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}\"");
+    }
+
+    @Test
     void shouldDeserializeSnakeCaseChannelResponse() throws Exception {
         String json = """
                 {

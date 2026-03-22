@@ -110,18 +110,30 @@ public class MulticastPlaylistService {
     }
 
     public String buildM3uContent(PlaylistUrlType urlType) {
-        return getM3uSnapshot(urlType).getContent();
+        return buildM3uContent(urlType, null);
+    }
+
+    public String buildM3uContent(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
+        return getM3uSnapshot(urlType, httpProxyBaseUrlOverride).getContent();
     }
 
     public String buildAptvContent(PlaylistUrlType urlType) {
-        return getAptvSnapshot(urlType).getContent();
+        return buildAptvContent(urlType, null);
+    }
+
+    public String buildAptvContent(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
+        return getAptvSnapshot(urlType, httpProxyBaseUrlOverride).getContent();
     }
 
     public GeneratedPlaylistResult generatePlaylistFiles(PlaylistUrlType urlType) {
+        return generatePlaylistFiles(urlType, null);
+    }
+
+    public GeneratedPlaylistResult generatePlaylistFiles(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
         Path outputDir = playlistProperties.getOutputDir();
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FILE_TIME_FORMATTER);
-        PlaylistGeneration generation = buildSnapshots(urlType);
+        PlaylistGeneration generation = buildSnapshots(urlType, httpProxyBaseUrlOverride);
         PlaylistSnapshot m3uSnapshot = generation.m3uSnapshot();
         PlaylistSnapshot aptvSnapshot = generation.aptvSnapshot();
 
@@ -160,18 +172,26 @@ public class MulticastPlaylistService {
     }
 
     public PlaylistSnapshot getM3uSnapshot(PlaylistUrlType urlType) {
-        return getPlaylistSnapshot(urlType, "m3u");
+        return getM3uSnapshot(urlType, null);
+    }
+
+    public PlaylistSnapshot getM3uSnapshot(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
+        return getPlaylistSnapshot(urlType, "m3u", httpProxyBaseUrlOverride);
     }
 
     public PlaylistSnapshot getAptvSnapshot(PlaylistUrlType urlType) {
-        return getPlaylistSnapshot(urlType, "aptv");
+        return getAptvSnapshot(urlType, null);
     }
 
-    private PlaylistSnapshot getPlaylistSnapshot(PlaylistUrlType urlType, String format) {
+    public PlaylistSnapshot getAptvSnapshot(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
+        return getPlaylistSnapshot(urlType, "aptv", httpProxyBaseUrlOverride);
+    }
+
+    private PlaylistSnapshot getPlaylistSnapshot(PlaylistUrlType urlType, String format, String httpProxyBaseUrlOverride) {
         try {
             ChengduTelecomChannelResponse response = fetchLatestChannels();
             latestSuccessfulResponse.set(response);
-            PlaylistSnapshot snapshot = buildSnapshotFromResponse(response, urlType, format, false, "实时抓取成功");
+            PlaylistSnapshot snapshot = buildSnapshotFromResponse(response, urlType, format, false, "实时抓取成功", httpProxyBaseUrlOverride);
             cacheGeneratedPlaylist(snapshotKey(format, urlType), snapshot);
             persistLatestSuccessSnapshot(format, urlType, snapshot);
             return snapshot;
@@ -180,7 +200,8 @@ public class MulticastPlaylistService {
             if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
                 log.warn("Realtime fetch failed, fallback to in-memory snapshot: {}", ex.getMessage());
                 return buildSnapshotFromResponse(fallbackResponse, urlType, format, true,
-                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
+                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage(),
+                        httpProxyBaseUrlOverride);
             }
 
             PlaylistSnapshot fileSnapshot = readLatestGeneratedPlaylist(format, urlType);
@@ -195,17 +216,18 @@ public class MulticastPlaylistService {
         }
     }
 
-    private PlaylistGeneration buildSnapshots(PlaylistUrlType urlType) {
+    private PlaylistGeneration buildSnapshots(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
         try {
             ChengduTelecomChannelResponse response = fetchLatestChannels();
             latestSuccessfulResponse.set(response);
-            return createAndCacheSnapshots(response, urlType, false, "实时抓取成功");
+            return createAndCacheSnapshots(response, urlType, false, "实时抓取成功", httpProxyBaseUrlOverride);
         } catch (Exception ex) {
             ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponse.get();
             if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
                 log.warn("Realtime fetch failed during file generation, fallback to in-memory snapshot: {}", ex.getMessage());
                 return createSnapshotsWithoutCaching(fallbackResponse, urlType, true,
-                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
+                        "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage(),
+                        httpProxyBaseUrlOverride);
             }
 
             PlaylistGeneration fileGeneration = readLatestGeneratedPlaylists(urlType);
@@ -225,8 +247,9 @@ public class MulticastPlaylistService {
     private PlaylistGeneration createAndCacheSnapshots(ChengduTelecomChannelResponse response,
                                                        PlaylistUrlType urlType,
                                                        boolean fallbackUsed,
-                                                       String message) {
-        PlaylistGeneration generation = createSnapshotsWithoutCaching(response, urlType, fallbackUsed, message);
+                                                       String message,
+                                                       String httpProxyBaseUrlOverride) {
+        PlaylistGeneration generation = createSnapshotsWithoutCaching(response, urlType, fallbackUsed, message, httpProxyBaseUrlOverride);
         cacheGeneratedPlaylist(snapshotKey("m3u", urlType), generation.m3uSnapshot());
         cacheGeneratedPlaylist(snapshotKey("aptv", urlType), generation.aptvSnapshot());
         persistLatestSuccessSnapshot("m3u", urlType, generation.m3uSnapshot());
@@ -237,10 +260,11 @@ public class MulticastPlaylistService {
     private PlaylistGeneration createSnapshotsWithoutCaching(ChengduTelecomChannelResponse response,
                                                              PlaylistUrlType urlType,
                                                              boolean fallbackUsed,
-                                                             String message) {
+                                                             String message,
+                                                             String httpProxyBaseUrlOverride) {
         return new PlaylistGeneration(
-                buildSnapshotFromResponse(response, urlType, "m3u", fallbackUsed, message),
-                buildSnapshotFromResponse(response, urlType, "aptv", fallbackUsed, message)
+                buildSnapshotFromResponse(response, urlType, "m3u", fallbackUsed, message, httpProxyBaseUrlOverride),
+                buildSnapshotFromResponse(response, urlType, "aptv", fallbackUsed, message, httpProxyBaseUrlOverride)
         );
     }
 
@@ -248,10 +272,11 @@ public class MulticastPlaylistService {
                                                        PlaylistUrlType urlType,
                                                        String format,
                                                        boolean fallbackUsed,
-                                                       String message) {
+                                                       String message,
+                                                       String httpProxyBaseUrlOverride) {
         String content = switch (format) {
-            case "m3u" -> buildM3uContentFromResponse(response, urlType);
-            case "aptv" -> buildAptvContentFromResponse(response, urlType);
+            case "m3u" -> buildM3uContentFromResponse(response, urlType, httpProxyBaseUrlOverride);
+            case "aptv" -> buildAptvContentFromResponse(response, urlType, httpProxyBaseUrlOverride);
             default -> throw new IllegalArgumentException("不支持的播放列表格式: " + format);
         };
 
@@ -450,7 +475,9 @@ public class MulticastPlaylistService {
                 .trim();
     }
 
-    private String buildM3uContentFromResponse(ChengduTelecomChannelResponse response, PlaylistUrlType urlType) {
+    private String buildM3uContentFromResponse(ChengduTelecomChannelResponse response,
+                                               PlaylistUrlType urlType,
+                                               String httpProxyBaseUrlOverride) {
         StringBuilder builder = new StringBuilder();
         builder.append("#EXTM3U");
         builder.append(" name=\"")
@@ -467,7 +494,7 @@ public class MulticastPlaylistService {
         builder.append(System.lineSeparator());
 
         for (ChannelInfo channel : response.getChannels()) {
-            String playableUrl = resolvePlayableUrl(channel, urlType);
+            String playableUrl = resolvePlayableUrl(channel, urlType, httpProxyBaseUrlOverride);
             if (!hasText(playableUrl)) {
                 continue;
             }
@@ -479,7 +506,7 @@ public class MulticastPlaylistService {
             }
             builder.append(" tvg-name=\"").append(escapeAttribute(normalizeChannelName(channel.getChannelName()))).append("\"");
             builder.append(" group-title=\"").append(escapeAttribute(response.getSource().getName())).append("\"");
-            String catchupSource = buildCatchupSource(channel);
+            String catchupSource = buildCatchupSource(channel, httpProxyBaseUrlOverride);
             if (hasText(catchupSource)) {
                 builder.append(" catchup=\"default\"");
                 builder.append(" catchup-source=\"").append(escapeAttribute(catchupSource)).append("\"");
@@ -491,12 +518,14 @@ public class MulticastPlaylistService {
         return builder.toString();
     }
 
-    private String buildAptvContentFromResponse(ChengduTelecomChannelResponse response, PlaylistUrlType urlType) {
+    private String buildAptvContentFromResponse(ChengduTelecomChannelResponse response,
+                                                PlaylistUrlType urlType,
+                                                String httpProxyBaseUrlOverride) {
         StringBuilder builder = new StringBuilder();
         builder.append(response.getSource().getName()).append(",#genre#").append(System.lineSeparator());
 
         for (ChannelInfo channel : response.getChannels()) {
-            String playableUrl = resolvePlayableUrl(channel, urlType);
+            String playableUrl = resolvePlayableUrl(channel, urlType, httpProxyBaseUrlOverride);
             if (!hasText(playableUrl)) {
                 continue;
             }
@@ -510,35 +539,39 @@ public class MulticastPlaylistService {
         return builder.toString();
     }
 
-    private String resolvePlayableUrl(ChannelInfo channel, PlaylistUrlType urlType) {
+    private String resolvePlayableUrl(ChannelInfo channel, PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
         return switch (urlType) {
-            case HTTP -> buildHttpPlayableUrl(channel);
+            case HTTP -> buildHttpPlayableUrl(channel, httpProxyBaseUrlOverride);
             case RTP -> channel.getRtpUrl();
         };
     }
 
-    private String buildHttpPlayableUrl(ChannelInfo channel) {
+    private String buildHttpPlayableUrl(ChannelInfo channel, String httpProxyBaseUrlOverride) {
         if (!hasText(channel.getMulticastAddress())) {
             return channel.getHttpUrl();
         }
 
-        String playableUrl = normalizeBaseUrl(playlistProperties.getHttpProxyBaseUrl()) + "/rtp/" + channel.getMulticastAddress();
+        String playableUrl = normalizeBaseUrl(resolveHttpProxyBaseUrl(httpProxyBaseUrlOverride)) + "/rtp/" + channel.getMulticastAddress();
         if (hasText(playlistProperties.getFccAddress())) {
             playableUrl = playableUrl + "?FCC=" + playlistProperties.getFccAddress();
         }
         return playableUrl;
     }
 
-    private String buildCatchupSource(ChannelInfo channel) {
+    private String buildCatchupSource(ChannelInfo channel, String httpProxyBaseUrlOverride) {
         if (!hasText(channel.getReplayUrl()) || !channel.getReplayUrl().startsWith("rtsp://")) {
             return null;
         }
 
         String replayPath = channel.getReplayUrl().substring("rtsp://".length());
-        return normalizeBaseUrl(playlistProperties.getHttpProxyBaseUrl())
+        return normalizeBaseUrl(resolveHttpProxyBaseUrl(httpProxyBaseUrlOverride))
                 + "/rtsp/"
                 + replayPath
                 + "?playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}";
+    }
+
+    private String resolveHttpProxyBaseUrl(String httpProxyBaseUrlOverride) {
+        return hasText(httpProxyBaseUrlOverride) ? httpProxyBaseUrlOverride.trim() : playlistProperties.getHttpProxyBaseUrl();
     }
 
     private String normalizeChannelName(String channelName) {

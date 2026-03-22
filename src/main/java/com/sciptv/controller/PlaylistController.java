@@ -26,21 +26,21 @@ public class PlaylistController {
 
     public void getM3u(Context ctx) {
         PlaylistUrlType urlType = resolveUrlType(ctx);
-        PlaylistSnapshot snapshot = multicastPlaylistService.getM3uSnapshot(urlType);
+        PlaylistSnapshot snapshot = multicastPlaylistService.getM3uSnapshot(urlType, resolveHttpProxyBaseUrlOverride(ctx));
         writeDownloadResponse(ctx, snapshot, "chengdu-telecom-" + urlType.name().toLowerCase() + ".m3u", "audio/x-mpegurl");
         logPlaylistSuccess(ctx, "m3u", urlType, snapshot);
     }
 
     public void getAptv(Context ctx) {
         PlaylistUrlType urlType = resolveUrlType(ctx);
-        PlaylistSnapshot snapshot = multicastPlaylistService.getAptvSnapshot(urlType);
+        PlaylistSnapshot snapshot = multicastPlaylistService.getAptvSnapshot(urlType, resolveHttpProxyBaseUrlOverride(ctx));
         writeDownloadResponse(ctx, snapshot, "chengdu-telecom-" + urlType.name().toLowerCase() + ".txt", "text/plain; charset=utf-8");
         logPlaylistSuccess(ctx, "aptv", urlType, snapshot);
     }
 
     public void generateFiles(Context ctx) throws JsonProcessingException {
         PlaylistUrlType urlType = resolveUrlType(ctx);
-        GeneratedPlaylistResult result = multicastPlaylistService.generatePlaylistFiles(urlType);
+        GeneratedPlaylistResult result = multicastPlaylistService.generatePlaylistFiles(urlType, resolveHttpProxyBaseUrlOverride(ctx));
         ctx.contentType("application/json; charset=utf-8");
         ctx.result(objectMapper.writeValueAsString(result));
         logGenerateSuccess(ctx, urlType, result);
@@ -90,6 +90,14 @@ public class PlaylistController {
         } catch (IllegalArgumentException ex) {
             throw new ApiException(400, "urlType 仅支持 HTTP 或 RTP");
         }
+    }
+
+    private String resolveHttpProxyBaseUrlOverride(Context ctx) {
+        String value = ctx.queryParam("SCIPTV_HTTP_PROXY_BASE_URL");
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private int resolveStatus(Exception exception) {

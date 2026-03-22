@@ -10,6 +10,64 @@
 
 ## 当前进度
 
+### 2026-03-22（Docker Hub 推送后通过 Serverless Devs 部署阿里云 FC）
+
+#### 已完成
+
+- 在仓库根目录新增并接入 `s.yaml` 作为阿里云 FC 部署描述文件
+- 将 GitHub Actions Docker 发布后的后续动作改为 `Serverless Devs` 部署链路
+- 支持通过 GitHub Secrets 配置阿里云 `AccessKey ID / AccessKey Secret`
+- 在镜像推送成功后自动执行 `s deploy --template s.yaml --use-local -y`
+- 同步更新 `README.md` 与 `docs/SESSION_CONTEXT.md` 中的工作流说明
+
+#### 涉及文件
+
+- `.github/workflows/docker-publish.yml`
+- `s.yaml`
+- `README.md`
+- `docs/SESSION_CONTEXT.md`
+- `docs/PROGRESS.md`
+
+#### 当前状态
+
+- 当前 `main` 分支发布镜像成功后，工作流可继续通过 `Serverless Devs` 部署阿里云 FC
+- FC 部署步骤依赖仓库 Secrets 中正确配置阿里云凭证；未配置时该步骤会自动跳过
+
+#### 下一步建议
+
+- 校验 `s.yaml` 中镜像地址、地域、资源组和函数名是否与线上环境完全一致
+- 如后续需要区分 `latest` 与 `sha` 镜像部署策略，可继续扩展 `s.yaml` 与工作流传参
+
+### 2026-03-22（HTTP 播放前缀请求级覆盖）
+
+#### 已完成
+
+- 为播放列表下载与生成接口增加可选请求参数 `SCIPTV_HTTP_PROXY_BASE_URL`
+- 调整 HTTP 播放地址前缀优先级为“请求参数 > 环境变量 > 默认值”
+- 保持未传参时的现有行为不变
+- 补充服务层与路由层相关测试用例
+- 同步更新 `README.md` 与 `docs/SESSION_CONTEXT.md` 文档说明
+
+#### 涉及文件
+
+- `src/main/java/com/sciptv/controller/PlaylistController.java`
+- `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
+- `src/test/java/com/sciptv/ScIptvApplicationTests.java`
+- `src/test/java/com/sciptv/service/MulticastPlaylistServiceTest.java`
+- `README.md`
+- `docs/SESSION_CONTEXT.md`
+- `docs/PROGRESS.md`
+
+#### 当前状态
+
+- 当前接口已支持通过请求参数临时覆盖 HTTP 播放地址前缀，便于不同访问方按需生成专属结果
+- 服务层相关测试通过；路由层测试在当前沙箱环境下因本地端口绑定受限而无法完整执行
+
+#### 下一步建议
+
+- 如果后续还会增加类似“请求级覆盖环境变量”的能力，可考虑统一抽出请求参数解析与覆盖策略
+- 可继续补充 `generate` 接口在请求级覆盖参数下的输出校验测试
+
 ### 2026-03-22（Javalin 迁移）
 
 #### 已完成

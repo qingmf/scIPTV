@@ -71,6 +71,9 @@
 - `GET /api/playlists/chengdu-telecom/m3u?urlType=HTTP`
 - `GET /api/playlists/chengdu-telecom/aptv?urlType=HTTP`
 - `POST /api/playlists/chengdu-telecom/generate?urlType=HTTP`
+- 以上播放列表接口额外支持可选请求参数 `SCIPTV_HTTP_PROXY_BASE_URL`
+- 当请求中显式传入 `SCIPTV_HTTP_PROXY_BASE_URL` 时，本次生成结果优先使用该值
+- 若未传该参数，则继续使用环境变量 `SCIPTV_HTTP_PROXY_BASE_URL` 或默认值
 
 ## 五、关键文件
 
@@ -121,6 +124,7 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 
 - `SCIPTV_HTTP_PROXY_BASE_URL`
   - 默认：`http://192.168.3.1:8188`
+  - 可被同名请求参数在单次请求内覆盖
 - `SCIPTV_FCC_ADDRESS`
   - 默认：`182.139.234.40:8027`
 - `SCIPTV_CONNECT_TIMEOUT_SECONDS`
@@ -172,6 +176,9 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 - GitHub Actions 依赖以下仓库 Secrets：
   - `DOCKERHUB_USERNAME`
   - `DOCKERHUB_TOKEN`
+  - `ALIBABA_CLOUD_ACCESS_KEY_ID`
+  - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
+- 仓库根目录已接入 `s.yaml`，Docker Hub 推送成功后，工作流会通过 `Serverless Devs` 执行阿里云 FC 重部署
 - 文档中提到的“地址整合平台”仍是中长期方向，当前实现应理解为“成都电信播放列表抓取与导出服务”
 - 生成本地文件时当前仍会分别生成两种格式，后续可继续优化为同一批抓取数据统一产出
 

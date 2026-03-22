@@ -1,0 +1,49 @@
+edition: 3.0.0
+name: fc3-example
+access: default
+resources:
+  fcDemo:
+    component: fc3
+    props:
+      region: cn-hongkong
+      handler: index.handler
+      role: ''
+      disableOndemand: false
+      description: ''
+      timeout: 60
+      diskSize: 512
+      internetAccess: true
+      resourceGroupId: rg-acfm37xi7kt6nva
+      instanceIsolationMode: SHARE
+      logConfig:
+        enableRequestMetrics: true
+        enableInstanceMetrics: true
+        logBeginRule: DefaultRegex
+        project: serverless-cn-hongkong-d71c6ab3-d0cc-5954-a1d2-73d272dba3fc
+        enableCustomExtraLog: true
+        logstore: default-logs
+      functionName: sciptv
+      sessionAffinity: NONE
+      runtime: custom-container
+      cpu: 0.1
+      customContainerConfig:
+        image: docker.io/qingmf/sciptv:latest
+        port: 8080
+      instanceConcurrency: 20
+      memorySize: 128
+      triggers:
+        - triggerConfig:
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - HEAD
+              - OPTIONS
+              - PATCH
+            authType: anonymous
+            disableURLInternet: false
+          triggerName: defaultTrigger
+          description: ''
+          qualifier: LATEST
+          triggerType: http

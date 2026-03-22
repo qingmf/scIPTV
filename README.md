@@ -121,6 +121,13 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 - 生成本地文件：
   `POST /api/playlists/chengdu-telecom/generate?urlType=HTTP`
 
+以上接口额外支持可选请求参数：
+
+- `SCIPTV_HTTP_PROXY_BASE_URL`
+  用于覆盖本次请求生成结果中的 HTTP 播放地址前缀
+  优先级高于环境变量 `SCIPTV_HTTP_PROXY_BASE_URL`
+  未传时仍使用环境变量或默认值
+
 `urlType` 支持：
 
 - `HTTP`：使用 `http://192.168.3.1:8188/rtp/...` 地址，兼容性更高
@@ -255,6 +262,29 @@ SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
 
 ```text
 docker.io/<DOCKERHUB_USERNAME>/sciptv
+```
+
+如果希望在推送 Docker Hub 成功后自动通过 `Serverless Devs` 重新部署阿里云 FC，还需要额外配置以下 Secrets：
+
+- `ALIBABA_CLOUD_ACCESS_KEY_ID`
+- `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
+
+仓库根目录需要提供 `Serverless Devs` 部署文件：
+
+```yaml
+s.yaml
+```
+
+工作流会在镜像推送成功后执行：
+
+```bash
+s deploy --template s.yaml --use-local -y
+```
+
+其中 `s.yaml` 中的镜像地址应与 Docker Hub 推送目标保持一致，例如：
+
+```text
+docker.io/<DOCKERHUB_USERNAME>/sciptv:latest
 ```
 
 ## 下一步建议
