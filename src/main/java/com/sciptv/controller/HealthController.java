@@ -1,23 +1,21 @@
 package com.sciptv.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sciptv.model.response.HealthResponse;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import io.javalin.http.Context;
+import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Health", description = "服务健康检查接口")
-@RestController
-@RequestMapping("/api/health")
+@RequiredArgsConstructor
 public class HealthController {
 
-    @Operation(summary = "健康检查", description = "用于确认服务是否正常启动")
-    @GetMapping
-    public HealthResponse health() {
-        return HealthResponse.builder()
+    private final ObjectMapper objectMapper;
+
+    public void health(Context ctx) throws JsonProcessingException {
+        ctx.contentType("application/json; charset=utf-8");
+        ctx.result(objectMapper.writeValueAsString(HealthResponse.builder()
                 .status("UP")
                 .service("scIPTV")
-                .build();
+                .build()));
     }
 }

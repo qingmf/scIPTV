@@ -15,9 +15,8 @@
 
 ### 1. 基础工程
 
-- 已基于 `JDK 21 + Maven + Spring Boot 3` 建立工程骨架
+- 已基于 `JDK 21 + Maven + Javalin` 建立运行骨架
 - 已接入 `Lombok`
-- 已接入 `Knife4j`
 - 已补充 `Maven Wrapper`
 
 ### 2. 播放列表能力
@@ -104,20 +103,17 @@
 
 ### 1. 本地开发
 
-- 默认 profile 为 `dev`
 - 直接执行：
 
 ```bash
-./mvnw spring-boot:run
+./mvnw package
+java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 ```
-
-- 开发环境默认可用接口文档
 
 ### 2. Docker 运行
 
-- Docker 默认使用 `prod`
 - Docker 默认开启低内存参数
-- Docker 默认关闭文档能力
+- Docker 直接运行 fat jar
 
 ## 七、当前环境变量
 
@@ -127,6 +123,10 @@
   - 默认：`http://192.168.3.1:8188`
 - `SCIPTV_FCC_ADDRESS`
   - 默认：`182.139.234.40:8027`
+- `SCIPTV_CONNECT_TIMEOUT_SECONDS`
+  - 默认：`5`
+- `SCIPTV_REQUEST_TIMEOUT_SECONDS`
+  - 默认：`10`
 
 ### 2. EPG
 
@@ -136,9 +136,6 @@
 
 ### 3. 环境与 JVM
 
-- `SPRING_PROFILES_ACTIVE`
-  - 本地默认：`dev`
-  - Docker 默认：`prod`
 - `JAVA_OPTS`
   - Docker 当前默认：
     `-Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError`
@@ -147,21 +144,20 @@
 
 ### 1. Web 与并发
 
-- 当前 Web 容器已切换为 `Undertow`
-- 当前已启用 `JDK 21` 虚拟线程
+- 当前 Web 框架为 `Javalin`
+- 当前不再依赖 Spring Boot 自动配置链路
 
 ### 2. 文档能力
 
-- `dev` 环境启用 `Knife4j`
-- `prod` 环境关闭 `Knife4j` 和 `springdoc`
-- `prod` 环境通过自动配置排除进一步降低启动负担
+- 当前未集成在线接口文档页面，接口说明以 `README.md` 和代码实现为准
 
 ### 3. 低内存运行策略
 
 - Docker 默认堆内存进一步压缩到 `32m/96m`
 - Docker 默认限制 `ActiveProcessorCount=1`，减少小容器场景下的额外线程开销
-- `prod` 环境关闭 `JMX`、关闭 Banner，并将 Undertow 线程数收紧为更小配置
+- 运行时关闭 Javalin Banner，并移除 Spring Boot 与文档依赖带来的基础开销
 - 运行时服务仅保留单份最近一次成功抓取响应，减少按 URL 类型重复缓存的对象占用
+- 上游抓取默认增加连接超时与请求超时，降低外部网络异常导致接口长时间挂起的风险
 
 ### 4. 回退策略
 
@@ -171,7 +167,6 @@
 ## 九、当前已知注意点
 
 - 如果生产环境要进一步降内存，下一阶段可考虑：
-  - 彻底将文档依赖从生产构建链路中剥离
   - 再评估 `GraalVM Native Image`
 - 当前已经具备 Docker 与 GitHub Actions 发布基础能力
 - GitHub Actions 依赖以下仓库 Secrets：

@@ -2,24 +2,25 @@ package com.sciptv.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sciptv.config.PlaylistProperties;
+import com.sciptv.exception.ApiException;
 import com.sciptv.model.multicast.ChannelInfo;
 import com.sciptv.model.multicast.ChengduTelecomChannelResponse;
 import com.sciptv.model.playlist.GeneratedPlaylistResult;
 import com.sciptv.model.playlist.PlaylistSnapshot;
 import com.sciptv.model.playlist.PlaylistUrlType;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -31,22 +32,28 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-@Service
-@RequiredArgsConstructor
 public class MulticastPlaylistService {
 
     private static final DateTimeFormatter FILE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Logger log = LoggerFactory.getLogger(MulticastPlaylistService.class);
 
     private final PlaylistProperties playlistProperties;
     private final ObjectMapper objectMapper;
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
+    private final HttpClient httpClient;
 
     private final AtomicReference<ChengduTelecomChannelResponse> latestSuccessfulResponse = new AtomicReference<>();
     private final ConcurrentHashMap<String, PlaylistSnapshot> latestSuccessfulPlaylists = new ConcurrentHashMap<>();
+
+    public MulticastPlaylistService(PlaylistProperties playlistProperties, ObjectMapper objectMapper) {
+        this.playlistProperties = playlistProperties;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(Math.max(1, playlistProperties.getConnectTimeoutSeconds())))
+                .build();
+    }
 
     public ChengduTelecomChannelResponse fetchLatestChannels() {
         String apiUrl = playlistProperties.getApiUrlTemplate()
@@ -54,34 +61,37 @@ public class MulticastPlaylistService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
-                .header("Accept", MediaType.APPLICATION_JSON_VALUE)
+                .header("Accept", "application/json")
+                .timeout(Duration.ofSeconds(Math.max(1, playlistProperties.getRequestTimeoutSeconds())))
                 .GET()
                 .build();
 
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("频道接口请求失败，HTTP 状态码: " + response.statusCode());
+                throw new ApiException(502, "频道接口请求失败，HTTP 状态码: " + response.statusCode());
             }
 
             ChengduTelecomChannelResponse channelResponse = objectMapper.readValue(response.body(), ChengduTelecomChannelResponse.class);
-            if (!Boolean.TRUE.equals(channelResponse.getSuccess()) || channelResponse.getChannels() == null) {
-                throw new IllegalStateException("频道接口返回异常，未获取到有效频道数据");
+            if (channelResponse == null || !Boolean.TRUE.equals(channelResponse.getSuccess()) || channelResponse.getChannels() == null) {
+                throw new ApiException(502, "频道接口返回异常，未获取到有效频道数据");
             }
 
             return postProcessChannelResponse(channelResponse);
+        } catch (HttpTimeoutException e) {
+            throw new ApiException(504, "频道接口请求超时", e);
         } catch (IOException e) {
-            throw new IllegalStateException("解析频道接口返回内容失败", e);
+            throw new ApiException(502, "解析频道接口返回内容失败", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("请求频道接口被中断", e);
+            throw new ApiException(503, "请求频道接口被中断", e);
         }
     }
 
     protected ChengduTelecomChannelResponse postProcessChannelResponse(ChengduTelecomChannelResponse channelResponse) {
         channelResponse.setChannels(channelResponse.getChannels().stream()
                 .filter(Objects::nonNull)
-                .filter(channel -> StringUtils.hasText(channel.getChannelName()))
+                .filter(channel -> hasText(channel.getChannelName()))
                 .filter(channel -> !isPictureInPictureChannel(channel))
                 .collect(java.util.stream.Collectors.collectingAndThen(
                         java.util.stream.Collectors.toList(),
@@ -127,6 +137,10 @@ public class MulticastPlaylistService {
             Files.writeString(latestM3uPath, m3uSnapshot.getContent(), StandardCharsets.UTF_8);
             Files.writeString(latestAptvPath, aptvSnapshot.getContent(), StandardCharsets.UTF_8);
 
+            log.info("Generated playlist files for {}, channels={}, fallbackUsed={}",
+                    urlType, m3uSnapshot.getChannelCount(),
+                    Boolean.TRUE.equals(m3uSnapshot.getFallbackUsed()) || Boolean.TRUE.equals(aptvSnapshot.getFallbackUsed()));
+
             cacheGeneratedPlaylist(snapshotKey("m3u", urlType), m3uSnapshot);
             cacheGeneratedPlaylist(snapshotKey("aptv", urlType), aptvSnapshot);
 
@@ -141,7 +155,7 @@ public class MulticastPlaylistService {
                     .message(joinMessages(m3uSnapshot.getMessage(), aptvSnapshot.getMessage()))
                     .build();
         } catch (IOException e) {
-            throw new IllegalStateException("写入播放列表文件失败", e);
+            throw new ApiException(500, "写入播放列表文件失败", e);
         }
     }
 
@@ -164,18 +178,20 @@ public class MulticastPlaylistService {
         } catch (Exception ex) {
             ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponse.get();
             if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
+                log.warn("Realtime fetch failed, fallback to in-memory snapshot: {}", ex.getMessage());
                 return buildSnapshotFromResponse(fallbackResponse, urlType, format, true,
                         "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
             }
 
             PlaylistSnapshot fileSnapshot = readLatestGeneratedPlaylist(format, urlType);
             if (fileSnapshot != null) {
+                log.warn("Realtime fetch failed, fallback to generated file for {}: {}", format, ex.getMessage());
                 fileSnapshot.setFallbackUsed(true);
                 fileSnapshot.setMessage("实时抓取失败，已回退到最近一次成功生成的文件: " + ex.getMessage());
                 return fileSnapshot;
             }
 
-            throw new IllegalStateException("实时抓取失败，且没有可用的最近一次成功数据", ex);
+            throw new ApiException(resolveStatus(ex), "实时抓取失败，且没有可用的最近一次成功数据", ex);
         }
     }
 
@@ -187,12 +203,14 @@ public class MulticastPlaylistService {
         } catch (Exception ex) {
             ChengduTelecomChannelResponse fallbackResponse = latestSuccessfulResponse.get();
             if (fallbackResponse != null && fallbackResponse.getChannels() != null && !fallbackResponse.getChannels().isEmpty()) {
+                log.warn("Realtime fetch failed during file generation, fallback to in-memory snapshot: {}", ex.getMessage());
                 return createSnapshotsWithoutCaching(fallbackResponse, urlType, true,
                         "实时抓取失败，已回退到最近一次成功抓取的数据: " + ex.getMessage());
             }
 
             PlaylistGeneration fileGeneration = readLatestGeneratedPlaylists(urlType);
             if (fileGeneration != null) {
+                log.warn("Realtime fetch failed during file generation, fallback to generated files: {}", ex.getMessage());
                 fileGeneration.m3uSnapshot().setFallbackUsed(true);
                 fileGeneration.m3uSnapshot().setMessage("实时抓取失败，已回退到最近一次成功生成的文件: " + ex.getMessage());
                 fileGeneration.aptvSnapshot().setFallbackUsed(true);
@@ -200,7 +218,7 @@ public class MulticastPlaylistService {
                 return fileGeneration;
             }
 
-            throw new IllegalStateException("实时抓取失败，且没有可用的最近一次成功数据", ex);
+            throw new ApiException(resolveStatus(ex), "实时抓取失败，且没有可用的最近一次成功数据", ex);
         }
     }
 
@@ -312,7 +330,7 @@ public class MulticastPlaylistService {
 
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
-            if (!StringUtils.hasText(content)) {
+            if (!hasText(content)) {
                 return null;
             }
 
@@ -330,12 +348,12 @@ public class MulticastPlaylistService {
     }
 
     private boolean hasContent(PlaylistSnapshot snapshot) {
-        return snapshot != null && StringUtils.hasText(snapshot.getContent());
+        return snapshot != null && hasText(snapshot.getContent());
     }
 
     private int countChannels(String content, String format) {
         return (int) content.lines()
-                .filter(StringUtils::hasText)
+                .filter(this::hasText)
                 .filter(line -> switch (format) {
                     case "m3u" -> line.startsWith("#EXTINF");
                     case "aptv" -> !line.endsWith(",#genre#");
@@ -361,10 +379,10 @@ public class MulticastPlaylistService {
     }
 
     private String joinMessages(String first, String second) {
-        if (StringUtils.hasText(first) && StringUtils.hasText(second) && !Objects.equals(first, second)) {
+        if (hasText(first) && hasText(second) && !Objects.equals(first, second)) {
             return first + " | " + second;
         }
-        return StringUtils.hasText(first) ? first : second;
+        return hasText(first) ? first : second;
     }
 
     private List<ChannelInfo> deduplicateChannels(List<ChannelInfo> channels) {
@@ -396,7 +414,7 @@ public class MulticastPlaylistService {
 
     private boolean isPictureInPictureChannel(ChannelInfo channel) {
         String channelName = channel.getChannelName();
-        return StringUtils.hasText(channelName) && channelName.contains("画中画");
+        return hasText(channelName) && channelName.contains("画中画");
     }
 
     private boolean isUltraHdChannel(String channelName, ChannelInfo channel) {
@@ -411,11 +429,11 @@ public class MulticastPlaylistService {
     }
 
     private boolean containsIgnoreCase(String value, String keyword) {
-        return StringUtils.hasText(value) && value.toUpperCase().contains(keyword.toUpperCase());
+        return hasText(value) && value.toUpperCase().contains(keyword.toUpperCase());
     }
 
     private String normalizeDedupKey(String channelName) {
-        if (!StringUtils.hasText(channelName)) {
+        if (!hasText(channelName)) {
             return "";
         }
 
@@ -450,7 +468,7 @@ public class MulticastPlaylistService {
 
         for (ChannelInfo channel : response.getChannels()) {
             String playableUrl = resolvePlayableUrl(channel, urlType);
-            if (!StringUtils.hasText(playableUrl)) {
+            if (!hasText(playableUrl)) {
                 continue;
             }
 
@@ -462,7 +480,7 @@ public class MulticastPlaylistService {
             builder.append(" tvg-name=\"").append(escapeAttribute(normalizeChannelName(channel.getChannelName()))).append("\"");
             builder.append(" group-title=\"").append(escapeAttribute(response.getSource().getName())).append("\"");
             String catchupSource = buildCatchupSource(channel);
-            if (StringUtils.hasText(catchupSource)) {
+            if (hasText(catchupSource)) {
                 builder.append(" catchup=\"default\"");
                 builder.append(" catchup-source=\"").append(escapeAttribute(catchupSource)).append("\"");
             }
@@ -479,7 +497,7 @@ public class MulticastPlaylistService {
 
         for (ChannelInfo channel : response.getChannels()) {
             String playableUrl = resolvePlayableUrl(channel, urlType);
-            if (!StringUtils.hasText(playableUrl)) {
+            if (!hasText(playableUrl)) {
                 continue;
             }
 
@@ -500,19 +518,19 @@ public class MulticastPlaylistService {
     }
 
     private String buildHttpPlayableUrl(ChannelInfo channel) {
-        if (!StringUtils.hasText(channel.getMulticastAddress())) {
+        if (!hasText(channel.getMulticastAddress())) {
             return channel.getHttpUrl();
         }
 
         String playableUrl = normalizeBaseUrl(playlistProperties.getHttpProxyBaseUrl()) + "/rtp/" + channel.getMulticastAddress();
-        if (StringUtils.hasText(playlistProperties.getFccAddress())) {
+        if (hasText(playlistProperties.getFccAddress())) {
             playableUrl = playableUrl + "?FCC=" + playlistProperties.getFccAddress();
         }
         return playableUrl;
     }
 
     private String buildCatchupSource(ChannelInfo channel) {
-        if (!StringUtils.hasText(channel.getReplayUrl()) || !channel.getReplayUrl().startsWith("rtsp://")) {
+        if (!hasText(channel.getReplayUrl()) || !channel.getReplayUrl().startsWith("rtsp://")) {
             return null;
         }
 
@@ -524,7 +542,7 @@ public class MulticastPlaylistService {
     }
 
     private String normalizeChannelName(String channelName) {
-        if (!StringUtils.hasText(channelName)) {
+        if (!hasText(channelName)) {
             return "";
         }
 
@@ -535,7 +553,7 @@ public class MulticastPlaylistService {
     }
 
     private String normalizeBaseUrl(String baseUrl) {
-        if (!StringUtils.hasText(baseUrl)) {
+        if (!hasText(baseUrl)) {
             throw new IllegalStateException("HTTP 播放地址前缀不能为空");
         }
         return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -543,6 +561,17 @@ public class MulticastPlaylistService {
 
     private String escapeAttribute(String value) {
         return value == null ? "" : value.replace("\"", "&quot;");
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private int resolveStatus(Exception ex) {
+        if (ex instanceof ApiException apiException) {
+            return apiException.getStatusCode();
+        }
+        return 500;
     }
 
     private record PlaylistGeneration(PlaylistSnapshot m3uSnapshot, PlaylistSnapshot aptvSnapshot) {

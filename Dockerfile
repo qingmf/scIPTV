@@ -17,7 +17,6 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 ENV TZ=Asia/Shanghai
-ENV SPRING_PROFILES_ACTIVE=prod
 ENV SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188
 ENV SCIPTV_EPG_URLS=https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml
 ENV SCIPTV_FCC_ADDRESS=182.139.234.40:8027

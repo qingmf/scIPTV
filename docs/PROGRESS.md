@@ -10,6 +10,78 @@
 
 ## 当前进度
 
+### 2026-03-22（Javalin 迁移）
+
+#### 已完成
+
+- 将 HTTP 服务入口从 `Spring Boot` 切换为 `Javalin`
+- 重写健康检查与播放列表接口的路由处理逻辑，保持原有路径和核心行为不变
+- 移除 `Spring Boot`、`Undertow`、`Knife4j` 等运行时依赖，改为更轻量的 fat jar 运行方式
+- 将播放列表配置改为通过环境变量直接加载，减少对 Spring 配置体系的依赖
+- 删除不再使用的 `application.yml`、`application-dev.yml`、`application-prod.yml`
+- 保留并验证现有播放列表生成、回退、去重逻辑测试
+- 更新 README、会话上下文和编码规范文档，使其与当前 Javalin 版本一致
+
+#### 涉及文件
+
+- `pom.xml`
+- `src/main/java/com/sciptv/ScIptvApplication.java`
+- `src/main/java/com/sciptv/controller/HealthController.java`
+- `src/main/java/com/sciptv/controller/PlaylistController.java`
+- `src/main/java/com/sciptv/config/PlaylistProperties.java`
+- `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
+- `src/test/java/com/sciptv/ScIptvApplicationTests.java`
+- `src/main/resources/application.yml`
+- `src/main/resources/application-dev.yml`
+- `src/main/resources/application-prod.yml`
+- `README.md`
+- `docs/SESSION_CONTEXT.md`
+- `docs/CODING_STANDARDS.md`
+- `docs/PROGRESS.md`
+
+#### 当前状态
+
+- 当前服务已可使用 `Javalin` 运行并继续提供健康检查、M3U/APTV 下载与本地生成能力
+- 运行时依赖栈比原先更轻，便于继续观察 Docker 内存占用变化
+
+#### 下一步建议
+
+- 补充一组针对 Javalin 路由层的接口测试
+- 为上游频道抓取增加超时与更明确的失败返回
+- 继续测量迁移前后 Docker 常驻内存和启动时间差异
+
+### 2026-03-22（Javalin 稳定性补强）
+
+#### 已完成
+
+- 为上游频道抓取增加连接超时与请求超时，避免网络异常时接口长时间挂起
+- 引入统一 `ApiException` 和 `ErrorResponse`，将无效参数与上游异常转换为更明确的 HTTP 状态码和 JSON 错误返回
+- 为 Javalin 路由层补充健康检查、非法 `urlType`、下载响应头等接口测试
+- 为应用启动、回退处理和错误响应补充关键日志，便于排查运行问题
+
+#### 涉及文件
+
+- `src/main/java/com/sciptv/ScIptvApplication.java`
+- `src/main/java/com/sciptv/controller/PlaylistController.java`
+- `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
+- `src/main/java/com/sciptv/config/PlaylistProperties.java`
+- `src/main/java/com/sciptv/exception/ApiException.java`
+- `src/main/java/com/sciptv/model/response/ErrorResponse.java`
+- `src/test/java/com/sciptv/ScIptvApplicationTests.java`
+- `README.md`
+- `docs/SESSION_CONTEXT.md`
+- `docs/PROGRESS.md`
+
+#### 当前状态
+
+- Javalin 版本已具备更明确的失败边界，外部接口在参数错误、上游超时和内部异常场景下的返回更可预期
+- 当前稳定性短板已从“缺少基础保护”转为“仍需继续补充更多边界场景测试”
+
+#### 下一步建议
+
+- 为上游返回空结构、快照回退、文件写入失败等分支继续补测试
+- 继续观测 Docker 常驻内存与请求超时参数在真实网络环境下的表现
+
 ### 2026-03-22
 
 #### 已完成

@@ -24,9 +24,9 @@
 
 - JDK 21
 - Maven
-- Spring Boot 3
-- Undertow
-- JDK 21 虚拟线程
+- Javalin
+- Jackson
+- 轻量级 fat jar 部署
 
 详细规范见：[`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md)
 
@@ -72,14 +72,10 @@ scIPTV/
 
 ## 当前已实现能力
 
-- 基于 `Spring Boot 3` 初始化 Maven 工程
+- 基于 `JDK 21 + Maven + Javalin` 运行服务
 - 配置 `JDK 21` 编译版本
 - 引入 `Lombok`
-- 引入 `Knife4j` 接口文档能力
-- Web 容器切换为 `Undertow`
-- 开启 `JDK 21` 虚拟线程支持
 - 建立应用启动类
-- 建立基础配置文件 `application.yml`
 - 提供基础健康检查接口 `/api/health`
 - 增加最小化启动测试
 - 对接四川成都电信官方组播源并实时抓取频道数据
@@ -97,20 +93,17 @@ scIPTV/
 - 当前暂未引入数据库、任务调度、后台管理、统一返回体和全局异常处理
 - 当前更适合作为可运行的基础服务，而不是已经完成工程化抽象的成熟平台
 
-## 接口文档
+## 当前接口说明
 
-启动项目后，可通过以下地址访问接口文档：
-
-- Knife4j UI：`http://localhost:8080/doc.html`
-- Swagger UI：`http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON：`http://localhost:8080/v3/api-docs`
+当前版本未集成在线接口文档页面，接口以 README 和代码为准。
 
 ## 本地运行
 
 项目已内置 Maven Wrapper，无需单独安装 Maven。
 
 ```bash
-./mvnw spring-boot:run
+./mvnw package
+java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 ```
 
 ```bash
@@ -221,8 +214,10 @@ docker compose up -d --build
   默认值：`https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml`
 - `SCIPTV_FCC_ADDRESS`
   默认值：`182.139.234.40:8027`
-- `SPRING_PROFILES_ACTIVE`
-  默认值：`prod`（仅 Docker 环境）
+- `SCIPTV_CONNECT_TIMEOUT_SECONDS`
+  默认值：`5`
+- `SCIPTV_REQUEST_TIMEOUT_SECONDS`
+  默认值：`10`
 - `JAVA_OPTS`
   默认值：`-Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError`
 
@@ -236,22 +231,13 @@ SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188 docker compose up -d
 
 当前默认优化策略：
 
-- Docker 默认使用 `prod` 环境启动
-- `prod` 环境关闭 `Knife4j` 和 OpenAPI 文档
-- `prod` 环境开启 `lazy-initialization`
 - Docker 默认设置 JVM 堆参数为 `-Xms32m -Xmx96m`
 - Docker 默认使用 `SerialGC` 压缩小内存场景占用
-- Docker 默认限制 `ActiveProcessorCount=1`，减少编译线程和调度开销
+- Docker 默认限制 `ActiveProcessorCount=1`，减少线程和调度开销
 - Docker 默认限制 `MaxMetaspaceSize=64m` 与 `ReservedCodeCacheSize=24m`
-- Web 容器使用 `Undertow`
-- `prod` 环境关闭 `JMX`、关闭 Banner，并收紧 Undertow 线程数
-- 默认启用 `JDK 21` 虚拟线程
-
-开发环境如需访问接口文档，请显式使用：
-
-```bash
-./mvnw spring-boot:run
-```
+- 运行时不再依赖 Spring Boot 自动配置和文档组件
+- 生成 M3U 与 APTV 时复用同一批抓取数据，减少重复请求和重复对象分配
+- 上游抓取增加连接超时和请求超时，避免网络异常时请求长时间挂起
 
 ## GitHub Actions 发布镜像
 
