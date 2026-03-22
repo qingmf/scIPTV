@@ -13,6 +13,7 @@ env:
 
 jobs:
   docker:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,6 +54,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Set up Node.js
         if: ${{ success() && env.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && env.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
