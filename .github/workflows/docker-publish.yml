@@ -8,6 +8,8 @@ on:
 
 env:
   IMAGE_NAME: sciptv
+  ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+  ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
 
 jobs:
   docker:
@@ -53,20 +55,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Set up Node.js
-        if: ${{ success() && secrets.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
+        if: ${{ success() && env.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && env.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install Serverless Devs
-        if: ${{ success() && secrets.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
+        if: ${{ success() && env.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && env.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
         run: npm install -g @serverless-devs/s
 
       - name: Configure Serverless Devs credentials
-        if: ${{ success() && secrets.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
-        env:
-          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
-          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        if: ${{ success() && env.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && env.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
         run: |
           s config add \
             --AccessKeyID "${ALIBABA_CLOUD_ACCESS_KEY_ID}" \
@@ -75,5 +74,5 @@ jobs:
             --force
 
       - name: Deploy to Aliyun FC
-        if: ${{ success() && secrets.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
+        if: ${{ success() && env.ALIBABA_CLOUD_ACCESS_KEY_ID != '' && env.ALIBABA_CLOUD_ACCESS_KEY_SECRET != '' }}
         run: s deploy --template s.yaml --use-local -y
