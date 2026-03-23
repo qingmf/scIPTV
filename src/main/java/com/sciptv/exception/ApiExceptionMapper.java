@@ -5,14 +5,24 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Provider
 public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionMapper.class);
 
     @Override
     public Response toResponse(Throwable exception) {
         int status = resolveStatus(exception);
         String message = resolveMessage(exception);
+
+        if (status >= 500) {
+            log.error("Unhandled exception, status={}, message={}", status, message, exception);
+        } else if (!(exception instanceof com.sciptv.exception.ApiException)) {
+            log.warn("Request failed, status={}, message={}", status, message, exception);
+        }
 
         return Response.status(status)
                 .type(MediaType.APPLICATION_JSON_TYPE)

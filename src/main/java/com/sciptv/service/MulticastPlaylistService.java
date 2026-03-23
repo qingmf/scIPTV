@@ -40,6 +40,8 @@ public class MulticastPlaylistService {
     private static final DateTimeFormatter FILE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Logger log = LoggerFactory.getLogger(MulticastPlaylistService.class);
+    private static final String DEFAULT_API_URL_TEMPLATE = "https://epg.51zmt.top:8001/multicast/api/channels/{sourceId}/";
+    private static final String DEFAULT_HTTP_PROXY_BASE_URL = "http://192.168.3.1:8188";
 
     private final SciptvConfig sciptvConfig;
     private final ObjectMapper objectMapper;
@@ -60,8 +62,8 @@ public class MulticastPlaylistService {
     }
 
     public ChengduTelecomChannelResponse fetchLatestChannels() {
-        String apiUrl = sciptvConfig.apiUrlTemplate()
-                .replace("{sourceId}", String.valueOf(sciptvConfig.sourceId()));
+        String apiUrlTemplate = nonBlankOrDefault(sciptvConfig.apiUrlTemplate(), DEFAULT_API_URL_TEMPLATE);
+        String apiUrl = apiUrlTemplate.replace("{sourceId}", String.valueOf(sciptvConfig.sourceId()));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
@@ -575,7 +577,10 @@ public class MulticastPlaylistService {
     }
 
     private String resolveHttpProxyBaseUrl(String httpProxyBaseUrlOverride) {
-        return hasText(httpProxyBaseUrlOverride) ? httpProxyBaseUrlOverride.trim() : sciptvConfig.httpProxyBaseUrl();
+        if (hasText(httpProxyBaseUrlOverride)) {
+            return httpProxyBaseUrlOverride.trim();
+        }
+        return nonBlankOrDefault(sciptvConfig.httpProxyBaseUrl(), DEFAULT_HTTP_PROXY_BASE_URL);
     }
 
     private String normalizeChannelName(String channelName) {
@@ -590,10 +595,8 @@ public class MulticastPlaylistService {
     }
 
     private String normalizeBaseUrl(String baseUrl) {
-        if (!hasText(baseUrl)) {
-            throw new IllegalStateException("HTTP 播放地址前缀不能为空");
-        }
-        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String resolved = nonBlankOrDefault(baseUrl, DEFAULT_HTTP_PROXY_BASE_URL);
+        return resolved.endsWith("/") ? resolved.substring(0, resolved.length() - 1) : resolved;
     }
 
     private String escapeAttribute(String value) {
@@ -602,6 +605,14 @@ public class MulticastPlaylistService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String nonBlankOrDefault(String value, String defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? defaultValue : trimmed;
     }
 
     private int resolveStatus(Exception ex) {
