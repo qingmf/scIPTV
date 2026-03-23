@@ -10,6 +10,54 @@
 
 ## 当前进度
 
+### 2026-03-23（补充 IDE 启动入口与清理生成物）
+
+#### 已完成
+
+- 增加 `@QuarkusMain` 启动类，便于在 IDE 中直接 Run/Debug
+- 增加一键脚本：`./dev.sh`（开发热加载）与 `./run.sh`（打包后运行）
+- 将运行时生成的播放列表输出目录 `output/` 加入 `.gitignore`，并从仓库中移除已提交的生成物文件
+- 同步更新 `README.md` 启动说明
+
+#### 涉及文件
+
+- `src/main/java/com/sciptv/Application.java`
+- `dev.sh`
+- `run.sh`
+- `.gitignore`
+- `README.md`
+- `output/playlists/*`（从仓库移除）
+
+### 2026-03-23（迁移 Quarkus Native 架构）
+
+#### 已完成
+
+- 将 Web 框架从 `Javalin` 迁移到 `Quarkus REST`
+- 配置改为使用 `@ConfigMapping`，并保持原环境变量兼容
+- 增加 Native 构建 profile：`./mvnw package -Pnative -Dquarkus.native.container-build=true`
+- 调整 Docker 构建产物为 Quarkus `quarkus-app`（JVM）与 `*-runner`（Native）
+- 将 GitHub Actions Docker 发布流程切换为“先构建 native runner，再打包 native 镜像”
+
+#### 涉及文件
+
+- `pom.xml`
+- `.github/workflows/docker-publish.yml`
+- `Dockerfile`
+- `src/main/docker/Dockerfile.native`
+- `src/main/java/com/sciptv/resource/HealthResource.java`
+- `src/main/java/com/sciptv/resource/PlaylistResource.java`
+- `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
+- `src/main/java/com/sciptv/config/SciptvConfig.java`
+
+#### 当前状态
+
+- `main` 分支构建将产出基于 Quarkus Native runner 的镜像（`linux/amd64`）
+
+#### 下一步建议
+
+- 如需继续发布 `linux/arm64`，可单独设计 arm64 native 交叉编译/多架构构建策略
+- 在阿里云 FC 上验证冷启动/内存占用，并按需下调 `memorySize`
+
 ### 2026-03-22（Docker Hub 推送后通过 Serverless Devs 部署阿里云 FC）
 
 #### 已完成

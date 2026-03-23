@@ -1,17 +1,10 @@
 # syntax=docker/dockerfile:1.7
-
-FROM maven:3.9.9-eclipse-temurin-21 AS builder
-
-WORKDIR /app
-
-COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
-COPY mvnw.cmd .
-COPY src src
-
-RUN mvn clean package -DskipTests
-
+#
+# Build:
+#   ./mvnw package
+# Then:
+#   docker build -f src/main/docker/Dockerfile.jvm -t sciptv:jvm .
+#
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
@@ -22,7 +15,7 @@ ENV SCIPTV_EPG_URLS=https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.x
 ENV SCIPTV_FCC_ADDRESS=182.139.234.40:8027
 ENV JAVA_OPTS="-Xms32m -Xmx96m -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError"
 
-COPY --from=builder /app/target/quarkus-app/ /app/quarkus-app/
+COPY target/quarkus-app/ /app/quarkus-app/
 
 EXPOSE 8080
 

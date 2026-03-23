@@ -45,12 +45,15 @@ jobs:
             type=ref,event=branch
             type=sha
 
+      - name: Build native runner (Quarkus)
+        run: ./mvnw package -Pnative -Dquarkus.native.container-build=true -DskipTests
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          file: ./src/main/docker/Dockerfile.native
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

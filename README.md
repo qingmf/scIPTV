@@ -24,8 +24,7 @@
 
 - JDK 21
 - Maven
-- Javalin
-- Jackson
+- Quarkus（REST + Jackson）
 - 轻量级 fat jar 部署
 
 详细规范见：[`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md)
@@ -72,10 +71,9 @@ scIPTV/
 
 ## 当前已实现能力
 
-- 基于 `JDK 21 + Maven + Javalin` 运行服务
-- 配置 `JDK 21` 编译版本
+- 基于 `JDK 21 + Maven + Quarkus` 运行服务
+- 配置 `JDK 21` 编译版本，支持 Quarkus JVM / Native 构建
 - 引入 `Lombok`
-- 建立应用启动类
 - 提供基础健康检查接口 `/api/health`
 - 增加最小化启动测试
 - 对接四川成都电信官方组播源并实时抓取频道数据
@@ -101,13 +99,42 @@ scIPTV/
 
 项目已内置 Maven Wrapper，无需单独安装 Maven。
 
+### 一键入口（推荐）
+
+开发模式（热加载）：
+
+```bash
+./dev.sh
+```
+
+打包后运行：
+
+```bash
+./run.sh
+```
+
+### 手动方式
+
 ```bash
 ./mvnw package
-java -jar target/sciptv-0.0.1-SNAPSHOT.jar
+java -jar target/quarkus-app/quarkus-run.jar
 ```
+
+### IDE 启动类
+
+已提供启动类：`src/main/java/com/sciptv/Application.java`，可直接在 IDE 中以普通 Java Application 方式运行（启动的是 Quarkus 运行模式；如需热加载仍建议用 `./mvnw quarkus:dev` 并在 IDE 附加调试）。
 
 ```bash
 ./mvnw test
+```
+
+## Native 构建（GraalVM）
+
+使用容器方式构建 native image（无需本机安装 GraalVM）：
+
+```bash
+./mvnw package -Pnative -Dquarkus.native.container-build=true
+./target/sciptv-0.0.1-SNAPSHOT-runner
 ```
 
 ## 最新播放列表获取

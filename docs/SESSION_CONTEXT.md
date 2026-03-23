@@ -15,7 +15,7 @@
 
 ### 1. 基础工程
 
-- 已基于 `JDK 21 + Maven + Javalin` 建立运行骨架
+- 已基于 `JDK 21 + Maven + Quarkus` 建立运行骨架
 - 已接入 `Lombok`
 - 已补充 `Maven Wrapper`
 
@@ -92,8 +92,8 @@
 ### 4. 播放列表核心代码
 
 - `src/main/java/com/sciptv/service/MulticastPlaylistService.java`
-- `src/main/java/com/sciptv/controller/PlaylistController.java`
-- `src/main/java/com/sciptv/config/PlaylistProperties.java`
+- `src/main/java/com/sciptv/resource/PlaylistResource.java`
+- `src/main/java/com/sciptv/config/SciptvConfig.java`
 
 ### 5. 当前主要文档
 
@@ -148,8 +148,8 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 
 ### 1. Web 与并发
 
-- 当前 Web 框架为 `Javalin`
-- 当前不再依赖 Spring Boot 自动配置链路
+- 当前 Web 框架为 `Quarkus`
+- 支持 JVM 运行与 GraalVM Native 构建
 
 ### 2. 文档能力
 
@@ -159,7 +159,7 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 
 - Docker 默认堆内存进一步压缩到 `32m/96m`
 - Docker 默认限制 `ActiveProcessorCount=1`，减少小容器场景下的额外线程开销
-- 运行时关闭 Javalin Banner，并移除 Spring Boot 与文档依赖带来的基础开销
+- 运行时关闭 Quarkus Banner，保持依赖栈精简
 - 运行时服务仅保留单份最近一次成功抓取响应，减少按 URL 类型重复缓存的对象占用
 - 上游抓取默认增加连接超时与请求超时，降低外部网络异常导致接口长时间挂起的风险
 

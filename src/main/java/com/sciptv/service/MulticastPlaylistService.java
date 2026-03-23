@@ -1,13 +1,15 @@
 package com.sciptv.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sciptv.config.PlaylistProperties;
+import com.sciptv.config.SciptvConfig;
 import com.sciptv.exception.ApiException;
 import com.sciptv.model.multicast.ChannelInfo;
 import com.sciptv.model.multicast.ChengduTelecomChannelResponse;
 import com.sciptv.model.playlist.GeneratedPlaylistResult;
 import com.sciptv.model.playlist.PlaylistSnapshot;
 import com.sciptv.model.playlist.PlaylistUrlType;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,13 +34,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+@ApplicationScoped
 public class MulticastPlaylistService {
 
     private static final DateTimeFormatter FILE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Logger log = LoggerFactory.getLogger(MulticastPlaylistService.class);
 
-    private final PlaylistProperties playlistProperties;
+    private final SciptvConfig sciptvConfig;
     private final ObjectMapper objectMapper;
 
     private final HttpClient httpClient;
@@ -46,23 +49,24 @@ public class MulticastPlaylistService {
     private final AtomicReference<ChengduTelecomChannelResponse> latestSuccessfulResponse = new AtomicReference<>();
     private final ConcurrentHashMap<String, PlaylistSnapshot> latestSuccessfulPlaylists = new ConcurrentHashMap<>();
 
-    public MulticastPlaylistService(PlaylistProperties playlistProperties, ObjectMapper objectMapper) {
-        this.playlistProperties = playlistProperties;
+    @Inject
+    public MulticastPlaylistService(SciptvConfig sciptvConfig, ObjectMapper objectMapper) {
+        this.sciptvConfig = sciptvConfig;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(Math.max(1, playlistProperties.getConnectTimeoutSeconds())))
+                .connectTimeout(Duration.ofSeconds(Math.max(1, sciptvConfig.connectTimeoutSeconds())))
                 .build();
     }
 
     public ChengduTelecomChannelResponse fetchLatestChannels() {
-        String apiUrl = playlistProperties.getApiUrlTemplate()
-                .replace("{sourceId}", String.valueOf(playlistProperties.getSourceId()));
+        String apiUrl = sciptvConfig.apiUrlTemplate()
+                .replace("{sourceId}", String.valueOf(sciptvConfig.sourceId()));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Accept", "application/json")
-                .timeout(Duration.ofSeconds(Math.max(1, playlistProperties.getRequestTimeoutSeconds())))
+                .timeout(Duration.ofSeconds(Math.max(1, sciptvConfig.requestTimeoutSeconds())))
                 .GET()
                 .build();
 
@@ -130,7 +134,7 @@ public class MulticastPlaylistService {
     }
 
     public GeneratedPlaylistResult generatePlaylistFiles(PlaylistUrlType urlType, String httpProxyBaseUrlOverride) {
-        Path outputDir = playlistProperties.getOutputDir();
+        Path outputDir = sciptvConfig.outputDir();
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FILE_TIME_FORMATTER);
         PlaylistGeneration generation = buildSnapshots(urlType, httpProxyBaseUrlOverride);
@@ -161,8 +165,8 @@ public class MulticastPlaylistService {
                     .channelCount(m3uSnapshot.getChannelCount())
                     .urlType(urlType.name())
                     .generatedAt(now.format(DISPLAY_TIME_FORMATTER))
-                    .m3uPath(m3uPath.toAbsolutePath().toString())
-                    .aptvPath(aptvPath.toAbsolutePath().toString())
+                    .m3uPath(m3uPath.toString())
+                    .aptvPath(aptvPath.toString())
                     .fallbackUsed(Boolean.TRUE.equals(m3uSnapshot.getFallbackUsed()) || Boolean.TRUE.equals(aptvSnapshot.getFallbackUsed()))
                     .message(joinMessages(m3uSnapshot.getMessage(), aptvSnapshot.getMessage()))
                     .build();
@@ -301,7 +305,7 @@ public class MulticastPlaylistService {
             return new PlaylistGeneration(cachedM3u, cachedAptv);
         }
 
-        Path outputDir = playlistProperties.getOutputDir();
+        Path outputDir = sciptvConfig.outputDir();
         if (!Files.exists(outputDir)) {
             return null;
         }
@@ -319,7 +323,7 @@ public class MulticastPlaylistService {
 
     private PlaylistSnapshot readLatestGeneratedPlaylist(String format, PlaylistUrlType urlType) {
         String suffix = "m3u".equals(format) ? ".m3u" : ".txt";
-        Path outputDir = playlistProperties.getOutputDir();
+        Path outputDir = sciptvConfig.outputDir();
         Path stableSnapshotPath = outputDir.resolve("chengdu-telecom-latest-" + urlType.name().toLowerCase() + suffix);
         PlaylistSnapshot stableSnapshot = readSnapshotFile(stableSnapshotPath, format,
                 "已回退到最近一次成功快照文件: " + stableSnapshotPath.getFileName());
@@ -392,7 +396,7 @@ public class MulticastPlaylistService {
     }
 
     private void persistLatestSuccessSnapshot(String format, PlaylistUrlType urlType, PlaylistSnapshot snapshot) {
-        Path outputDir = playlistProperties.getOutputDir();
+        Path outputDir = sciptvConfig.outputDir();
         String suffix = "m3u".equals(format) ? ".m3u" : ".txt";
         Path snapshotPath = outputDir.resolve("chengdu-telecom-latest-" + urlType.name().toLowerCase() + suffix);
 
@@ -485,9 +489,9 @@ public class MulticastPlaylistService {
                 .append(" - ")
                 .append(LocalDateTime.now().format(DISPLAY_TIME_FORMATTER))
                 .append("\"");
-        if (!playlistProperties.getEpgUrls().isEmpty()) {
+        if (!sciptvConfig.epgUrls().isEmpty()) {
             builder.append(" url-tvg=\"")
-                    .append(String.join(",", playlistProperties.getEpgUrls()))
+                    .append(String.join(",", sciptvConfig.epgUrls()))
                     .append("\"");
         }
         builder.append(System.lineSeparator());
@@ -552,8 +556,8 @@ public class MulticastPlaylistService {
         }
 
         String playableUrl = normalizeBaseUrl(resolveHttpProxyBaseUrl(httpProxyBaseUrlOverride)) + "/rtp/" + channel.getMulticastAddress();
-        if (hasText(playlistProperties.getFccAddress())) {
-            playableUrl = playableUrl + "?FCC=" + playlistProperties.getFccAddress();
+        if (hasText(sciptvConfig.fccAddress())) {
+            playableUrl = playableUrl + "?FCC=" + sciptvConfig.fccAddress();
         }
         return playableUrl;
     }
@@ -571,7 +575,7 @@ public class MulticastPlaylistService {
     }
 
     private String resolveHttpProxyBaseUrl(String httpProxyBaseUrlOverride) {
-        return hasText(httpProxyBaseUrlOverride) ? httpProxyBaseUrlOverride.trim() : playlistProperties.getHttpProxyBaseUrl();
+        return hasText(httpProxyBaseUrlOverride) ? httpProxyBaseUrlOverride.trim() : sciptvConfig.httpProxyBaseUrl();
     }
 
     private String normalizeChannelName(String channelName) {

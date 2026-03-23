@@ -1,7 +1,7 @@
 package com.sciptv.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sciptv.config.PlaylistProperties;
+import com.sciptv.config.SciptvConfig;
 import com.sciptv.model.multicast.ChannelInfo;
 import com.sciptv.model.multicast.ChengduTelecomChannelResponse;
 import com.sciptv.model.multicast.SourceInfo;
@@ -20,8 +20,8 @@ class MulticastPlaylistServiceTest {
 
     @Test
     void shouldGenerateM3uAndAptvContent() {
-        PlaylistProperties properties = new PlaylistProperties();
-        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), mockResponse());
+        SciptvConfig config = TestSciptvConfig.defaults();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), mockResponse());
 
         String m3u = service.buildM3uContent(PlaylistUrlType.HTTP);
         String aptv = service.buildAptvContent(PlaylistUrlType.RTP);
@@ -39,8 +39,8 @@ class MulticastPlaylistServiceTest {
 
     @Test
     void shouldPreferRequestHttpProxyBaseUrlOverrideWhenBuildingHttpPlaylist() {
-        PlaylistProperties properties = new PlaylistProperties();
-        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), mockResponse());
+        SciptvConfig config = TestSciptvConfig.defaults();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), mockResponse());
 
         String m3u = service.buildM3uContent(PlaylistUrlType.HTTP, "http://10.10.10.10:7777");
 
@@ -83,8 +83,8 @@ class MulticastPlaylistServiceTest {
 
     @Test
     void shouldFallbackToLastSuccessfulResponseWhenFetchFails() {
-        PlaylistProperties properties = new PlaylistProperties();
-        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), mockResponse());
+        SciptvConfig config = TestSciptvConfig.defaults();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), mockResponse());
 
         String first = service.buildM3uContent(PlaylistUrlType.HTTP);
         service.setFailOnFetch(true);
@@ -99,9 +99,8 @@ class MulticastPlaylistServiceTest {
 
     @Test
     void shouldFallbackToLastGeneratedFileWhenFetchFailsWithoutMemoryCache() throws Exception {
-        PlaylistProperties properties = new PlaylistProperties();
         Path outputDir = Files.createTempDirectory("sciptv-playlist-test");
-        properties.setOutputDir(outputDir);
+        SciptvConfig config = TestSciptvConfig.defaults(outputDir);
 
         String fileContent = """
                 #EXTM3U
@@ -111,7 +110,7 @@ class MulticastPlaylistServiceTest {
                 """;
         Files.writeString(outputDir.resolve("chengdu-telecom-http-20260321_120000.m3u"), fileContent);
 
-        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), null);
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), null);
         service.setFailOnFetch(true);
 
         PlaylistSnapshot fallback = service.getM3uSnapshot(PlaylistUrlType.HTTP);
@@ -123,8 +122,8 @@ class MulticastPlaylistServiceTest {
 
     @Test
     void shouldRemovePictureInPictureAndPrefer4kForDuplicateChannels() {
-        PlaylistProperties properties = new PlaylistProperties();
-        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(properties, new ObjectMapper(), duplicateResponse());
+        SciptvConfig config = TestSciptvConfig.defaults();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), duplicateResponse());
 
         String m3u = service.buildM3uContent(PlaylistUrlType.HTTP);
 
@@ -193,10 +192,10 @@ class MulticastPlaylistServiceTest {
         private final ChengduTelecomChannelResponse response;
         private boolean failOnFetch;
 
-        private TestableMulticastPlaylistService(PlaylistProperties playlistProperties,
+        private TestableMulticastPlaylistService(SciptvConfig sciptvConfig,
                                                 ObjectMapper objectMapper,
                                                 ChengduTelecomChannelResponse response) {
-            super(playlistProperties, objectMapper);
+            super(sciptvConfig, objectMapper);
             this.response = response;
         }
 
@@ -210,6 +209,66 @@ class MulticastPlaylistServiceTest {
                 throw new IllegalStateException("mock fetch failed");
             }
             return postProcessChannelResponse(response);
+        }
+    }
+
+    private static final class TestSciptvConfig implements SciptvConfig {
+
+        private final Path outputDir;
+
+        private TestSciptvConfig(Path outputDir) {
+            this.outputDir = outputDir;
+        }
+
+        static SciptvConfig defaults() {
+            return new TestSciptvConfig(Path.of("output", "playlists"));
+        }
+
+        static SciptvConfig defaults(Path outputDir) {
+            return new TestSciptvConfig(outputDir);
+        }
+
+        @Override
+        public long sourceId() {
+            return 1L;
+        }
+
+        @Override
+        public String apiUrlTemplate() {
+            return "https://epg.51zmt.top:8001/multicast/api/channels/{sourceId}/";
+        }
+
+        @Override
+        public Path outputDir() {
+            return outputDir;
+        }
+
+        @Override
+        public String httpProxyBaseUrl() {
+            return "http://192.168.3.1:8188";
+        }
+
+        @Override
+        public List<String> epgUrls() {
+            return List.of(
+                    "https://epg.51zmt.top:8001/e.xml",
+                    "https://epg.112114.xyz/pp.xml"
+            );
+        }
+
+        @Override
+        public String fccAddress() {
+            return "182.139.234.40:8027";
+        }
+
+        @Override
+        public int connectTimeoutSeconds() {
+            return 5;
+        }
+
+        @Override
+        public int requestTimeoutSeconds() {
+            return 10;
         }
     }
 }

@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+#
+# Build:
+#   ./mvnw package -Pnative -Dquarkus.native.container-build=true
+# Then:
+#   docker build -f src/main/docker/Dockerfile.native -t sciptv:native .
+#
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5
+
+WORKDIR /work/
+
+ENV TZ=Asia/Shanghai
+ENV SCIPTV_HTTP_PROXY_BASE_URL=http://192.168.3.1:8188
+ENV SCIPTV_EPG_URLS=https://epg.51zmt.top:8001/e.xml,https://epg.112114.xyz/pp.xml
+ENV SCIPTV_FCC_ADDRESS=182.139.234.40:8027
+
+COPY target/*-runner /work/application
+RUN chmod 755 /work/application
+
+EXPOSE 8080
+
+CMD ["/work/application"]
