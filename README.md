@@ -34,6 +34,7 @@
 - 项目说明：当前文件 `README.md`
 - 进度记录：[`docs/PROGRESS.md`](docs/PROGRESS.md)
 - 编码规范：[`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md)
+- 架构说明：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - 会话上下文：[`docs/SESSION_CONTEXT.md`](docs/SESSION_CONTEXT.md)
 
 各文档分工建议如下：
@@ -42,6 +43,7 @@
 - `docs/SESSION_CONTEXT.md`：新会话快速恢复上下文时优先阅读
 - `docs/PROGRESS.md`：记录每轮已完成修改、当前状态和下一步建议
 - `docs/CODING_STANDARDS.md`：工程约束、分层要求和开发规范
+- `docs/ARCHITECTURE.md`：当前实现的分层、关键数据流与扩展点
 
 ## 协作入口
 

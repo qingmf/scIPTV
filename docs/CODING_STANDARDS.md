@@ -1,6 +1,6 @@
 # 编码规范
 
-本文档用于统一 `scIPTV` 项目的工程约束、编码风格与开发基线。
+本文档用于统一项目的工程约束、编码风格与开发基线（可复用于其他项目）。
 
 ## 一、基础技术要求
 
@@ -64,12 +64,14 @@
 ```text
 com.sciptv
 com.sciptv.config
-com.sciptv.controller
+com.sciptv.resource
 com.sciptv.service
 com.sciptv.repository
 com.sciptv.model
 com.sciptv.dto
 com.sciptv.util
+com.sciptv.exception
+com.sciptv.filter
 ```
 
 ## 四、代码风格规范
@@ -102,6 +104,12 @@ com.sciptv.util
 - 使用统一异常处理机制
 - 使用统一返回结构时，要在项目内保持一致
 - 所有对外接口必须在文档中可见并可用于手工调试测试
+
+补充约定：
+
+- Resource 层使用 `jakarta.ws.rs.*` 注解（如 `@Path`、`@GET`、`@POST`、`@QueryParam`）
+- 对外下载类接口应设置合理的 `Content-Type` 与 `Content-Disposition`
+- 若需在响应头中返回中文提示，必须进行 header-safe 编码（避免非 ASCII header 值导致的兼容性问题）
 
 ## 六、配置管理规范
 
@@ -147,7 +155,7 @@ com.sciptv.util
 推荐格式：
 
 ```text
-feat: 初始化 IPTV 地址整合模块
+feat: 初始化核心模块
 fix: 修复地址去重逻辑问题
 docs: 完善 README 和开发规范
 refactor: 优化地址校验服务结构

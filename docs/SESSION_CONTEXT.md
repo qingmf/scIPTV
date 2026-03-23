@@ -101,6 +101,7 @@
 - `docs/SESSION_CONTEXT.md`：快速恢复会话上下文
 - `docs/PROGRESS.md`：历史修改记录与下一步建议
 - `docs/CODING_STANDARDS.md`：工程约束与编码规范
+- `docs/ARCHITECTURE.md`：分层结构、关键数据流与扩展点
 
 ## 六、当前运行方式
 
