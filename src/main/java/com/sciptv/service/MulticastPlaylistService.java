@@ -63,10 +63,23 @@ public class MulticastPlaylistService {
 
     public ChengduTelecomChannelResponse fetchLatestChannels() {
         String apiUrlTemplate = nonBlankOrDefault(sciptvConfig.apiUrlTemplate(), DEFAULT_API_URL_TEMPLATE);
+        if (!apiUrlTemplate.contains("{sourceId}")) {
+            log.warn("Invalid SCIPTV_API_URL_TEMPLATE (missing {sourceId}), fallback to default. value={}", apiUrlTemplate);
+            apiUrlTemplate = DEFAULT_API_URL_TEMPLATE;
+        }
+
         String apiUrl = apiUrlTemplate.replace("{sourceId}", String.valueOf(sciptvConfig.sourceId()));
+        URI uri;
+        try {
+            uri = URI.create(apiUrl);
+        } catch (IllegalArgumentException ex) {
+            String fallbackUrl = DEFAULT_API_URL_TEMPLATE.replace("{sourceId}", String.valueOf(sciptvConfig.sourceId()));
+            log.warn("Invalid SCIPTV_API_URL_TEMPLATE (URI syntax), fallback to default. url={}, fallbackUrl={}", apiUrl, fallbackUrl);
+            uri = URI.create(fallbackUrl);
+        }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl))
+                .uri(uri)
                 .header("Accept", "application/json")
                 .timeout(Duration.ofSeconds(Math.max(1, sciptvConfig.requestTimeoutSeconds())))
                 .GET()

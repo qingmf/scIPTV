@@ -3,6 +3,9 @@ package com.sciptv.exception;
 import com.sciptv.model.response.ErrorResponse;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import org.slf4j.Logger;
@@ -37,6 +40,9 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
         if (exception instanceof ApiException apiException) {
             return apiException.getStatusCode();
         }
+        if (exception instanceof WebApplicationException webApplicationException) {
+            return webApplicationException.getResponse().getStatus();
+        }
         if (exception instanceof IllegalArgumentException) {
             return 400;
         }
@@ -44,6 +50,9 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
     }
 
     private String resolveMessage(Throwable exception) {
+        if (exception instanceof NotFoundException) {
+            return Status.NOT_FOUND.getReasonPhrase();
+        }
         String message = exception.getMessage();
         return message == null || message.isBlank() ? "服务器内部错误" : message;
     }
