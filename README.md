@@ -124,6 +124,10 @@ java -jar target/quarkus-app/quarkus-run.jar
 
 已提供启动类：`src/main/java/com/sciptv/Application.java`，可直接在 IDE 中以普通 Java Application 方式运行（启动的是 Quarkus 运行模式；如需热加载仍建议用 `./mvnw quarkus:dev` 并在 IDE 附加调试）。
 
+### 常见报错
+
+- `release version 21 not supported`：说明当前使用的 JDK 版本低于 21。请在本机/IDE/CI 中切换到 JDK 21（例如设置 `JAVA_HOME`，或在 GitHub Actions 中使用 `actions/setup-java` 配置 `java-version: "21"`）。
+
 ```bash
 ./mvnw test
 ```

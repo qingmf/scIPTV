@@ -106,11 +106,29 @@
 
 ### 1. 本地开发
 
-- 直接执行：
+- 开发模式（热加载）：
+
+```bash
+./mvnw quarkus:dev
+```
+
+或使用仓库脚本：
+
+```bash
+./dev.sh
+```
+
+打包后运行：
 
 ```bash
 ./mvnw package
-java -jar target/sciptv-0.0.1-SNAPSHOT.jar
+java -jar target/quarkus-app/quarkus-run.jar
+```
+
+或使用仓库脚本：
+
+```bash
+./run.sh
 ```
 
 ### 2. Docker 运行
@@ -170,6 +188,7 @@ java -jar target/sciptv-0.0.1-SNAPSHOT.jar
 
 ## 九、当前已知注意点
 
+- Maven 编译参数使用 `release=21`，如遇到 `release version 21 not supported`，说明当前 JDK 低于 21（本机/IDE/CI 都需要切到 JDK 21）
 - 如果生产环境要进一步降内存，下一阶段可考虑：
   - 再评估 `GraalVM Native Image`
 - 当前已经具备 Docker 与 GitHub Actions 发布基础能力

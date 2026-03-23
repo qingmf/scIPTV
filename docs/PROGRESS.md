@@ -18,6 +18,7 @@
 - 增加一键脚本：`./dev.sh`（开发热加载）与 `./run.sh`（打包后运行）
 - 将运行时生成的播放列表输出目录 `output/` 加入 `.gitignore`，并从仓库中移除已提交的生成物文件
 - 同步更新 `README.md` 启动说明
+- 修复 GitHub Actions：显式安装 `Java 21`，避免 runner 默认 JDK 过低导致编译失败
 
 #### 涉及文件
 
@@ -26,6 +27,7 @@
 - `run.sh`
 - `.gitignore`
 - `README.md`
+- `.github/workflows/docker-publish.yml`
 - `output/playlists/*`（从仓库移除）
 
 ### 2026-03-23（迁移 Quarkus Native 架构）
