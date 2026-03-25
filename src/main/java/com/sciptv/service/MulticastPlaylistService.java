@@ -447,10 +447,10 @@ public class MulticastPlaylistService {
 
     private int channelPriority(ChannelInfo channel) {
         String channelName = channel.getChannelName();
-        if (isUltraHdChannel(channelName, channel)) {
+        if (isHighDefinitionChannel(channelName, channel)) {
             return 0;
         }
-        if (isHighDefinitionChannel(channelName, channel)) {
+        if (isUltraHdChannel(channelName, channel)) {
             return 1;
         }
         return 2;

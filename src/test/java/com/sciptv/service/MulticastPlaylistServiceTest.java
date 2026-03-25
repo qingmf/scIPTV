@@ -121,15 +121,26 @@ class MulticastPlaylistServiceTest {
     }
 
     @Test
-    void shouldRemovePictureInPictureAndPrefer4kForDuplicateChannels() {
+    void shouldRemovePictureInPictureAndPreferHighDefinitionForDuplicateChannels() {
         SciptvConfig config = TestSciptvConfig.defaults();
         TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), duplicateResponse());
 
         String m3u = service.buildM3uContent(PlaylistUrlType.HTTP);
 
         assertThat(m3u).doesNotContain("画中画");
-        assertThat(m3u).doesNotContain("四川卫视高清");
-        assertThat(m3u).contains("四川卫视4K");
+        assertThat(m3u).contains("/rtp/239.94.0.59:5140");
+        assertThat(m3u).doesNotContain("/rtp/239.94.0.115:5140");
+    }
+
+    @Test
+    void shouldFallbackToUpstreamHttpUrlWhenMulticastAddressMissing() {
+        SciptvConfig config = TestSciptvConfig.defaults();
+        TestableMulticastPlaylistService service = new TestableMulticastPlaylistService(config, new ObjectMapper(), responseWithoutMulticastAddress());
+
+        String m3u = service.buildM3uContent(PlaylistUrlType.HTTP);
+
+        assertThat(m3u).contains("http://192.168.2.1:6666/rtp/239.94.0.31:5140");
+        assertThat(m3u).doesNotContain("http://192.168.3.1:8188/rtp/239.94.0.31:5140");
     }
 
     private ChengduTelecomChannelResponse mockResponse() {
@@ -143,6 +154,24 @@ class MulticastPlaylistServiceTest {
         channelInfo.setHttpUrl("http://192.168.2.1:6666/rtp/239.94.0.31:5140");
         channelInfo.setRtpUrl("rtp://239.94.0.31:5140");
         channelInfo.setReplayUrl("rtsp://182.139.234.40/PLTV/88888896/224/3221228807/10000100000000060000000003732597_0.smil");
+
+        ChengduTelecomChannelResponse response = new ChengduTelecomChannelResponse();
+        response.setSuccess(true);
+        response.setSource(sourceInfo);
+        response.setChannels(List.of(channelInfo));
+        return response;
+    }
+
+    private ChengduTelecomChannelResponse responseWithoutMulticastAddress() {
+        SourceInfo sourceInfo = new SourceInfo();
+        sourceInfo.setName("四川成都电信");
+
+        ChannelInfo channelInfo = new ChannelInfo();
+        channelInfo.setIndex(1);
+        channelInfo.setChannelName("CCTV-1高清");
+        channelInfo.setMulticastAddress(null);
+        channelInfo.setHttpUrl("http://192.168.2.1:6666/rtp/239.94.0.31:5140");
+        channelInfo.setRtpUrl("rtp://239.94.0.31:5140");
 
         ChengduTelecomChannelResponse response = new ChengduTelecomChannelResponse();
         response.setSuccess(true);
